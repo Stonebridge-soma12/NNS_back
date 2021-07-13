@@ -21,6 +21,32 @@ type Project struct {
 	UpdateTime  time.Time `db:"update_time"`
 }
 
+func DefaultConfig() NullJson {
+	d := `{
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "loss": "sparse_categorical_crossentropy",
+    "metrics": ["accuracy"],
+    "batch_size": 32,
+    "epochs": 10
+}`
+	return NullJson{
+		Json:  []byte(d),
+		Valid: true,
+	}
+}
+
+func DefaultContent() NullJson {
+	d := `{
+	"output": "",
+	"layers": []
+}`
+	return NullJson{
+		Json:  []byte(d),
+		Valid: true,
+	}
+}
+
 // NullJson represents a JSON that may be null.
 // NullJson implements the Scanner interface so
 // it can be used as a scan destination
@@ -138,14 +164,40 @@ func SelectProject(db *sqlx.DB, key Keyer) (Project, error) {
 }
 
 
-//func InsertProject(db *sqlx.DB, project Project) (int64, error) {
-//
-//}
-//
-//func UpdateProject(db *sqlx.DB, userId int64, projectNo int, project Project) error {
-//
-//}
-//
-//func DeleteProject(db sqlx.DB, userId int64, projectNo int) error {
-//
-//}
+func InsertProject(db *sqlx.DB, project Project) (int64, error) {
+	result, err := db.NamedExec(
+		`INSERT INTO project (user_id, 
+                     project_no, 
+                     name, 
+                     description, 
+                     config, 
+                     content)
+			VALUES (:user_id,
+					:project_no,
+					:name,
+					:description,
+					:config,
+					:content);`, project)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.LastInsertId()
+}
+
+func UpdateProject(db *sqlx.DB, project Project) error {
+	_, err := db.NamedExec(
+		`UPDATE project
+				SET name        = :name,
+					description = :description,
+					config      = :config,
+					content     = :content
+				WHERE id = :id;`, project)
+
+	return err
+}
+
+func DeleteProject(db sqlx.DB, userId int64, projectNo int) error {
+	_, err := db.Exec(`DELETE FROM project WHERE user_id = ? AND project_no = ?;`, userId, projectNo)
+	return err
+}
