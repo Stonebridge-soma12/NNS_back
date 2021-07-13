@@ -15,6 +15,7 @@ type Project struct {
 	ProjectNo   int       `db:"project_no"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
+	Config      NullJson  `db:"config"`
 	Content     NullJson  `db:"content"`
 	CreateTime  time.Time `db:"create_time"`
 	UpdateTime  time.Time `db:"update_time"`
@@ -69,6 +70,7 @@ func SelectProjectList(db *sqlx.DB, userId int64, offset, limit int) ([]Project,
 					   p.project_no,
 					   p.name,
 					   p.description,
+        			   p.config,
 					   p.content,
 					   p.create_time,
 					   p.update_time
@@ -78,6 +80,7 @@ func SelectProjectList(db *sqlx.DB, userId int64, offset, limit int) ([]Project,
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	projectList := make([]Project, 0, limit)
 	for rows.Next() {
@@ -92,6 +95,7 @@ func SelectProjectList(db *sqlx.DB, userId int64, offset, limit int) ([]Project,
 	return projectList, nil
 }
 
+// Keyer designate where condition
 type Keyer interface {
 	apply(baseQuery string) (query string, args []interface{})
 }
@@ -121,16 +125,18 @@ func SelectProject(db *sqlx.DB, key Keyer) (Project, error) {
 					   p.project_no,
 					   p.name,
 					   p.description,
+					   p.config,
 					   p.content,
 					   p.create_time,
 					   p.update_time
 				FROM project p`)
-	
+
 	p := Project{}
 	err := db.QueryRowx(query, args...).StructScan(&p)
 
 	return p, err
 }
+
 
 //func InsertProject(db *sqlx.DB, project Project) (int64, error) {
 //

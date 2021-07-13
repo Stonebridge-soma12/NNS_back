@@ -56,8 +56,8 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type GetProjectListResponseBody struct {
-	Projects []GetProjectListResponseProjectBody `json:"projects"`
-	Pagination Pagination `json:"pagination"`
+	Projects   []GetProjectListResponseProjectBody `json:"projects"`
+	Pagination Pagination                          `json:"pagination"`
 }
 
 type GetProjectListResponseProjectBody struct {
@@ -103,7 +103,92 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writeJson(w, http.StatusOK, responseBody{
+		"projectNo":   project.ProjectNo,
+		"name":        project.Name,
+		"description": project.Description,
+		"lastModify":  project.UpdateTime,
+		"content":     project.Content.Json,
+		"config":      project.Config.Json,
+	})
+}
+
+func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrNotFound,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
+
+	// implement require ----------------------------
+	userId := tempUserId
+	// ----------------------------------------------
+
+	project, err := model.SelectProject(e.DB, model.WithUserIdAndProjectNo(userId, projectNo))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
 	writeJson(w, http.StatusOK, project.Content.Json)
+}
+
+func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrNotFound,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
+
+	// implement require ----------------------------
+	userId := tempUserId
+	// ----------------------------------------------
+
+	project, err := model.SelectProject(e.DB, model.WithUserIdAndProjectNo(userId, projectNo))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	writeJson(w, http.StatusOK, project.Config.Json)
 }
 
 func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
