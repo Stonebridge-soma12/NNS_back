@@ -82,7 +82,7 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	project, err := model.SelectProject(e.DB, model.WithUserIdAndProjectNo(userId, projectNo))
+	project, err := model.SelectProject(e.DB, userId, projectNo)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -128,7 +128,7 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	project, err := model.SelectProject(e.DB, model.WithUserIdAndProjectNo(userId, projectNo))
+	project, err := model.SelectProject(e.DB, userId, projectNo)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -167,7 +167,7 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	project, err := model.SelectProject(e.DB, model.WithUserIdAndProjectNo(userId, projectNo))
+	project, err := model.SelectProject(e.DB, userId, projectNo)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -193,6 +193,11 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 
+}
+
+type CreateProjectRequestBody struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func (e Env) UpdateProjectHandler(w http.ResponseWriter, r *http.Request) {

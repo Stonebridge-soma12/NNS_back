@@ -21,6 +21,19 @@ type Project struct {
 	UpdateTime  time.Time `db:"update_time"`
 }
 
+func NewProject(userId int64, projectNo int, name, description string) Project {
+	return Project{
+		UserId:      userId,
+		ProjectNo:   projectNo,
+		Name:        name,
+		Description: description,
+		Config:      DefaultConfig(),
+		Content:     DefaultContent(),
+		CreateTime: time.Now(),
+		UpdateTime: time.Now(),
+	}
+}
+
 func DefaultConfig() NullJson {
 	d := `{
     "optimizer": "adam",
@@ -121,31 +134,9 @@ func SelectProjectList(db *sqlx.DB, userId int64, offset, limit int) ([]Project,
 	return projectList, nil
 }
 
-// Keyer designate where condition
-type Keyer interface {
-	apply(baseQuery string) (query string, args []interface{})
-}
-
-type uniqueFunc func(baseQuery string) (query string, args []interface{})
-
-func (f uniqueFunc) apply(baseQuery string) (query string, args []interface{}) {
-	return f(baseQuery)
-}
-
-func WithId(id int64) Keyer {
-	return uniqueFunc(func(baseQuery string) (query string, args []interface{}) {
-		return baseQuery + ` WHERE p.id = ?;`, []interface{}{id}
-	})
-}
-
-func WithUserIdAndProjectNo(userId int64, projectNo int) Keyer {
-	return uniqueFunc(func(baseQuery string) (query string, args []interface{}) {
-		return baseQuery + ` WHERE p.user_id = ? and p.project_no = ?`, []interface{}{userId, projectNo}
-	})
-}
-
-func SelectProject(db *sqlx.DB, key Keyer) (Project, error) {
-	query, args := key.apply(
+func SelectProject(db *sqlx.DB, userId int64, projectNo int) (Project, error) {
+	p := Project{}
+	err := db.QueryRowx(
 		`SELECT p.id,
 					   p.user_id,
 					   p.project_no,
@@ -155,49 +146,54 @@ func SelectProject(db *sqlx.DB, key Keyer) (Project, error) {
 					   p.content,
 					   p.create_time,
 					   p.update_time
-				FROM project p`)
-
-	p := Project{}
-	err := db.QueryRowx(query, args...).StructScan(&p)
+				FROM project p
+				WHERE p.user_id = ? AND p.project_no = ?;`, userId, projectNo).StructScan(&p)
 
 	return p, err
 }
 
-
-func InsertProject(db *sqlx.DB, project Project) (int64, error) {
+func (p Project) Insert(db *sqlx.DB) (int64, error) {
 	result, err := db.NamedExec(
 		`INSERT INTO project (user_id, 
                      project_no, 
                      name, 
                      description, 
                      config, 
-                     content)
+                     content,
+                     create_time,
+                     update_time)
 			VALUES (:user_id,
 					:project_no,
 					:name,
 					:description,
 					:config,
-					:content);`, project)
+					:content,
+			        :create_time,
+			        :update_time);`, p)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	p.Id, err = result.LastInsertId()
+	return p.Id, err
 }
 
-func UpdateProject(db *sqlx.DB, project Project) error {
+func (p Project) Update(db *sqlx.DB) error {
+	p.UpdateTime = time.Now()
+
 	_, err := db.NamedExec(
 		`UPDATE project
 				SET name        = :name,
 					description = :description,
 					config      = :config,
-					content     = :content
-				WHERE id = :id;`, project)
+					content     = :content,
+				    update_time = :update_time
+				WHERE id = :id;`, p)
 
 	return err
 }
 
-func DeleteProject(db sqlx.DB, userId int64, projectNo int) error {
-	_, err := db.Exec(`DELETE FROM project WHERE user_id = ? AND project_no = ?;`, userId, projectNo)
+func (p Project) Delete(db sqlx.DB) error {
+	_, err := db.Exec(`DELETE FROM project WHERE id = ?;`, p.Id)
 	return err
 }
