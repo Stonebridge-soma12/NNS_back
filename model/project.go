@@ -35,27 +35,29 @@ func NewProject(userId int64, projectNo int, name, description string) Project {
 }
 
 func DefaultConfig() NullJson {
-	d := `{
-    "optimizer": "adam",
-    "learning_rate": 0.001,
-    "loss": "sparse_categorical_crossentropy",
-    "metrics": ["accuracy"],
-    "batch_size": 32,
-    "epochs": 10
-}`
+	defaultValue := map[string]interface{}{
+		"optimizer":     "adam",
+		"learning_rate": 0.001,
+		"loss":          "sparse_categorical_crossentropy",
+		"metrics":       []interface{}{"accuracy"},
+		"batch_size":    32,
+		"epochs":        10,
+	}
+	defaultBytes, _ := json.Marshal(defaultValue)
 	return NullJson{
-		Json:  []byte(d),
+		Json:  json.RawMessage(defaultBytes),
 		Valid: true,
 	}
 }
 
 func DefaultContent() NullJson {
-	d := `{
-	"output": "",
-	"layers": []
-}`
+	defaultValue := map[string]interface{}{
+		"output": "",
+		"layers": []interface{}{},
+	}
+	defaultBytes, _ := json.Marshal(defaultValue)
 	return NullJson{
-		Json:  []byte(d),
+		Json:  json.RawMessage(defaultBytes),
 		Valid: true,
 	}
 }
@@ -92,7 +94,7 @@ func (nj NullJson) Value() (driver.Value, error) {
 	if !nj.Valid {
 		return nil, nil
 	}
-	return nj.Json, nil
+	return nj.Json.MarshalJSON()
 }
 
 func SelectProjectCount(db *sqlx.DB, userId int64) (int, error) {

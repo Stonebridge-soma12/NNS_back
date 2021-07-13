@@ -25,6 +25,7 @@ type ErrCode string
 
 const (
 	// 400
+	ErrDuplicate          ErrCode = "Duplicate Entity"
 	ErrInvalidPathParm    ErrCode = "Invalid Path Parameter"
 	ErrInvalidQueryParm   ErrCode = "Invalid Query Parameter"
 	ErrInvalidRequestBody ErrCode = "Invalid Request Body"

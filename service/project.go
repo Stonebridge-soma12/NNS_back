@@ -2,6 +2,8 @@ package service
 
 import (
 	"database/sql"
+	"encoding/json"
+	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"net/http"
 	"nns_back/model"
@@ -192,12 +194,64 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
+	reqBody := CreateProjectRequestBody{}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		e.Logger.Warnw("failed to json decode request body",
+			"error code", ErrInvalidRequestBody,
+			"error", err)
+		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		return
+	}
 
+	// implement require -------------------------
+	userId := tempUserId
+	// -------------------------------------------
+
+	// get exist project count
+	itemCount, err := model.SelectProjectCount(e.DB, userId)
+	if err != nil {
+		e.Logger.Errorw("failed to select project count",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	// set new project number
+	newProjectNo := itemCount + 1
+
+	// create new project and save to database
+	project := model.NewProject(userId, newProjectNo, reqBody.Name, reqBody.Description)
+	if _, err := project.Insert(e.DB); err != nil {
+		// check project name duplicate
+		if err.(*mysql.MySQLError).Number == 1062 {
+			e.Logger.Debugw("failed to insert new project (duplicated)",
+				"error code", ErrDuplicate,
+				"error", err,
+				"project", project)
+			writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+			return
+		}
+
+		e.Logger.Errorw("failed to insert new project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"project", project)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	writeJson(w, http.StatusCreated, CreateProjectResponseBody{newProjectNo})
 }
 
 type CreateProjectRequestBody struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+type CreateProjectResponseBody struct {
+	ProjectNo int `json:"projectNo"`
 }
 
 func (e Env) UpdateProjectHandler(w http.ResponseWriter, r *http.Request) {
