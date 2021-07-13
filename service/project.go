@@ -225,7 +225,7 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	project := model.NewProject(userId, newProjectNo, reqBody.Name, reqBody.Description)
 	if _, err := project.Insert(e.DB); err != nil {
 		// check project name duplicate
-		if err.(*mysql.MySQLError).Number == 1062 {
+		if err.(*mysql.MySQLError).Number == MysqlErrDupEntry {
 			e.Logger.Debugw("failed to insert new project (duplicated)",
 				"error code", ErrDuplicate,
 				"error", err,

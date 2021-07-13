@@ -21,30 +21,15 @@ func writeJson(w http.ResponseWriter, code int, data interface{}) error {
 }
 
 // write error response helper
-type ErrCode string
-
-const (
-	// 400
-	ErrDuplicate          ErrCode = "Duplicate Entity"
-	ErrInvalidPathParm    ErrCode = "Invalid Path Parameter"
-	ErrInvalidQueryParm   ErrCode = "Invalid Query Parameter"
-	ErrInvalidRequestBody ErrCode = "Invalid Request Body"
-	ErrBadRequest         ErrCode = "Bad Request"
-	ErrNotFound           ErrCode = "Not Found"
-
-	// 500
-	ErrInternalServerError ErrCode = "Internal Server Error"
-)
-
 type ErrBody struct {
-	StatusCode int     `json:"statusCode"` // http status code
-	ErrMsg     ErrCode `json:"errMsg"`
+	StatusCode int    `json:"statusCode"` // http status code
+	ErrMsg     ErrMsg `json:"errMsg"`
 }
 
-func writeError(w http.ResponseWriter, code int, errCode ErrCode) error {
+func writeError(w http.ResponseWriter, code int, errMsg ErrMsg) error {
 	body := ErrBody{
 		StatusCode: code,
-		ErrMsg:     errCode,
+		ErrMsg:     errMsg,
 	}
 	return writeJson(w, code, body)
 }
