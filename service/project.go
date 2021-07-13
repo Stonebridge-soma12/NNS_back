@@ -254,8 +254,225 @@ type CreateProjectResponseBody struct {
 	ProjectNo int `json:"projectNo"`
 }
 
-func (e Env) UpdateProjectHandler(w http.ResponseWriter, r *http.Request) {
+// UpdateProjectInfoHandler update project name, description
+func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrNotFound,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
 
+	reqBody := UpdateProjectInfoRequestBody{}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		e.Logger.Warnw("failed to json decode request body",
+			"error code", ErrInvalidRequestBody,
+			"error", err)
+		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		return
+	}
+
+	// implement require -------------------------
+	userId := tempUserId
+	// -------------------------------------------
+
+	// get project
+	project, err := model.SelectProject(e.DB, userId, projectNo)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	// update project
+	project.Name = reqBody.Name
+	project.Description = reqBody.Description
+	if err := project.Update(e.DB); err != nil {
+		// check project name duplicate
+		if err.(*mysql.MySQLError).Number == MysqlErrDupEntry {
+			e.Logger.Debugw("failed to update project (duplicated)",
+				"error code", ErrDuplicate,
+				"error", err,
+				"project", project)
+			writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+			return
+		}
+
+		e.Logger.Errorw("failed to update project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"project", project)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type UpdateProjectInfoRequestBody struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// UpdateProjectContentHandler update project content
+func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrNotFound,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
+
+	// check request body json Unmarshalable
+	reqBodyUnmarshaled := make(map[string]interface{})
+	if err := json.NewDecoder(r.Body).Decode(&reqBodyUnmarshaled); err != nil {
+		e.Logger.Warnw("failed to json decode request body",
+			"error code", ErrInvalidRequestBody,
+			"error", err)
+		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		return
+	}
+
+	reqBodyBytes, err := json.Marshal(reqBodyUnmarshaled)
+	if err != nil {
+		e.Logger.Errorw("failed to json marshal reqBodyUnmarshaled",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	// implement require -------------------------
+	userId := tempUserId
+	// -------------------------------------------
+
+	// get project
+	project, err := model.SelectProject(e.DB, userId, projectNo)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+
+	// update project
+	project.Content.Json = reqBodyBytes
+	if err := project.Update(e.DB); err != nil {
+		e.Logger.Errorw("failed to update project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"project", project)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// UpdateProjectConfigHandler update project config
+func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrNotFound,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
+
+	// check request body json Unmarshalable
+	reqBodyUnmarshaled := make(map[string]interface{})
+	if err := json.NewDecoder(r.Body).Decode(&reqBodyUnmarshaled); err != nil {
+		e.Logger.Warnw("failed to json decode request body",
+			"error code", ErrInvalidRequestBody,
+			"error", err)
+		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		return
+	}
+
+	reqBodyBytes, err := json.Marshal(reqBodyUnmarshaled)
+	if err != nil {
+		e.Logger.Errorw("failed to json marshal reqBodyUnmarshaled",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	// implement require -------------------------
+	userId := tempUserId
+	// -------------------------------------------
+
+	// get project
+	project, err := model.SelectProject(e.DB, userId, projectNo)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+
+	// update project
+	project.Config.Json = reqBodyBytes
+	if err := project.Update(e.DB); err != nil {
+		e.Logger.Errorw("failed to update project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"project", project)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {

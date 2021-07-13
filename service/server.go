@@ -30,8 +30,9 @@ func (e Env) Start(port string) {
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.GetProjectContentHandler).Methods(http.MethodGet)
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.GetProjectConfigHandler).Methods(http.MethodGet)
 	router.HandleFunc("/api/project", e.CreateProjectHandler).Methods(http.MethodPost)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectHandler).Methods(http.MethodPut)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectHandler).Methods(http.MethodPut)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/info", e.UpdateProjectInfoHandler).Methods(http.MethodPut)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectContentHandler).Methods(http.MethodPut)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectConfigHandler).Methods(http.MethodPut)
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(http.MethodDelete)
 
 	srv := &http.Server{
