@@ -57,10 +57,14 @@ func GetPagination(curPage, pageSize, itemCount int) Pagination {
 		pageSize = maxPageSize
 	}
 
-	if itemCount % pageSize == 0 {
-		pg.LastPage = itemCount / pageSize
+	if itemCount == 0 {
+		pg.LastPage = 1
 	} else {
-		pg.LastPage = itemCount / pageSize + 1
+		if itemCount % pageSize == 0 {
+			pg.LastPage = itemCount / pageSize
+		} else {
+			pg.LastPage = itemCount / pageSize + 1
+		}
 	}
 
 	if pg.CurPage < 1 {
