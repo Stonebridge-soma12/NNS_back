@@ -29,8 +29,8 @@ func NewProject(userId int64, projectNo int, name, description string) Project {
 		Description: description,
 		Config:      DefaultConfig(),
 		Content:     DefaultContent(),
-		CreateTime: time.Now(),
-		UpdateTime: time.Now(),
+		CreateTime:  time.Now(),
+		UpdateTime:  time.Now(),
 	}
 }
 
