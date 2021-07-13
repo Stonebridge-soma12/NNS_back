@@ -17,6 +17,7 @@ type Project struct {
 	Description string    `db:"description"`
 	Config      NullJson  `db:"config"`
 	Content     NullJson  `db:"content"`
+	Status      Status    `db:"status"`
 	CreateTime  time.Time `db:"create_time"`
 	UpdateTime  time.Time `db:"update_time"`
 }
@@ -29,6 +30,7 @@ func NewProject(userId int64, projectNo int, name, description string) Project {
 		Description: description,
 		Config:      DefaultConfig(),
 		Content:     DefaultContent(),
+		Status:      EXIST,
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 	}
@@ -97,9 +99,16 @@ func (nj NullJson) Value() (driver.Value, error) {
 	return nj.Json.MarshalJSON()
 }
 
-func SelectProjectCount(db *sqlx.DB, userId int64) (int, error) {
+// SelectProjectCount if onlyExist is true, then select exist entity count
+func SelectProjectCount(db *sqlx.DB, userId int64, onlyExist bool) (int, error) {
+	query := `SELECT COUNT(*) FROM project p WHERE p.user_id = ?`
+	if onlyExist {
+		query += ` AND p.status = 'EXIST'`
+	}
+	query += ";"
+
 	var count int
-	err := db.QueryRowx(`SELECT COUNT(*) FROM project p WHERE p.user_id = ?;`, userId).Scan(&count)
+	err := db.QueryRowx(query, userId).Scan(&count)
 
 	return count, err
 }
@@ -113,10 +122,11 @@ func SelectProjectList(db *sqlx.DB, userId int64, offset, limit int) ([]Project,
 					   p.description,
         			   p.config,
 					   p.content,
+        			   p.status,
 					   p.create_time,
 					   p.update_time
 				FROM project p
-				WHERE p.user_id = ?
+				WHERE p.user_id = ? AND p.status = 'EXIST'
 				LIMIT ?, ?;`, userId, offset, limit)
 	if err != nil {
 		return nil, err
@@ -146,10 +156,30 @@ func SelectProject(db *sqlx.DB, userId int64, projectNo int) (Project, error) {
 					   p.description,
 					   p.config,
 					   p.content,
+       				   p.status,
 					   p.create_time,
 					   p.update_time
 				FROM project p
-				WHERE p.user_id = ? AND p.project_no = ?;`, userId, projectNo).StructScan(&p)
+				WHERE p.user_id = ? AND p.project_no = ? AND p.status = 'EXIST';`, userId, projectNo).StructScan(&p)
+
+	return p, err
+}
+
+func SelectProjectWithName(db *sqlx.DB, userId int64, projectName string) (Project, error) {
+	p := Project{}
+	err := db.QueryRowx(
+		`SELECT p.id,
+					   p.user_id,
+					   p.project_no,
+					   p.name,
+					   p.description,
+					   p.config,
+					   p.content,
+       				   p.status,
+					   p.create_time,
+					   p.update_time
+				FROM project p
+				WHERE p.user_id = ? AND p.status = 'EXIST' AND p.name = ?;`, userId, projectName).StructScan(&p)
 
 	return p, err
 }
@@ -162,6 +192,7 @@ func (p Project) Insert(db *sqlx.DB) (int64, error) {
                      description, 
                      config, 
                      content,
+                     status,
                      create_time,
                      update_time)
 			VALUES (:user_id,
@@ -170,6 +201,7 @@ func (p Project) Insert(db *sqlx.DB) (int64, error) {
 					:description,
 					:config,
 					:content,
+			        :status,
 			        :create_time,
 			        :update_time);`, p)
 	if err != nil {
@@ -189,13 +221,14 @@ func (p Project) Update(db *sqlx.DB) error {
 					description = :description,
 					config      = :config,
 					content     = :content,
+				    status 		= :status,
 				    update_time = :update_time
-				WHERE id = :id;`, p)
+				WHERE id = :id AND status = 'EXIST';`, p)
 
 	return err
 }
 
 func (p Project) Delete(db *sqlx.DB) error {
-	_, err := db.Exec(`DELETE FROM project WHERE id = ?;`, p.Id)
-	return err
+	p.Status = DELETED
+	return p.Update(db)
 }

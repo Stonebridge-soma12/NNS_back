@@ -3,7 +3,6 @@ package service
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"net/http"
 	"nns_back/model"
@@ -18,7 +17,7 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	count, err := model.SelectProjectCount(e.DB, userId)
+	count, err := model.SelectProjectCount(e.DB, userId, true)
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
 			"error code", ErrInternalServerError,
@@ -207,8 +206,28 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// -------------------------------------------
 
+	// check project name duplicate
+	if _, err := model.SelectProjectWithName(e.DB, userId, reqBody.Name); err != sql.ErrNoRows {
+		if err != nil {
+			e.Logger.Errorw("failed to select project with name",
+				"error code", ErrInternalServerError,
+				"error", err,
+				"userId", userId,
+				"projectName", reqBody.Name)
+			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			return
+		}
+
+		e.Logger.Debugw("failed to insert new project (duplicated)",
+			"error code", ErrDuplicate,
+			"error", err,
+			"projectName", reqBody.Name)
+		writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+		return
+	}
+
 	// get exist project count
-	itemCount, err := model.SelectProjectCount(e.DB, userId)
+	itemCount, err := model.SelectProjectCount(e.DB, userId, false)
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
 			"error code", ErrInternalServerError,
@@ -224,16 +243,6 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	// create new project and save to database
 	project := model.NewProject(userId, newProjectNo, reqBody.Name, reqBody.Description)
 	if _, err := project.Insert(e.DB); err != nil {
-		// check project name duplicate
-		if err.(*mysql.MySQLError).Number == MysqlErrDupEntry {
-			e.Logger.Debugw("failed to insert new project (duplicated)",
-				"error code", ErrDuplicate,
-				"error", err,
-				"project", project)
-			writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
-			return
-		}
-
 		e.Logger.Errorw("failed to insert new project",
 			"error code", ErrInternalServerError,
 			"error", err,
@@ -279,6 +288,26 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// -------------------------------------------
 
+	// check project name duplicate
+	if _, err := model.SelectProjectWithName(e.DB, userId, reqBody.Name); err != sql.ErrNoRows {
+		if err != nil {
+			e.Logger.Errorw("failed to select project with name",
+				"error code", ErrInternalServerError,
+				"error", err,
+				"userId", userId,
+				"projectName", reqBody.Name)
+			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			return
+		}
+
+		e.Logger.Debugw("failed to insert new project (duplicated)",
+			"error code", ErrDuplicate,
+			"error", err,
+			"projectName", reqBody.Name)
+		writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+		return
+	}
+
 	// get project
 	project, err := model.SelectProject(e.DB, userId, projectNo)
 	if err != nil {
@@ -305,16 +334,6 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	project.Name = reqBody.Name
 	project.Description = reqBody.Description
 	if err := project.Update(e.DB); err != nil {
-		// check project name duplicate
-		if err.(*mysql.MySQLError).Number == MysqlErrDupEntry {
-			e.Logger.Debugw("failed to update project (duplicated)",
-				"error code", ErrDuplicate,
-				"error", err,
-				"project", project)
-			writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
-			return
-		}
-
 		e.Logger.Errorw("failed to update project",
 			"error code", ErrInternalServerError,
 			"error", err,
