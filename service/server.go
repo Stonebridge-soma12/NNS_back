@@ -19,7 +19,6 @@ func (e Env) Start(port string) {
 
 	router := mux.NewRouter()
 
-
 	router.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("pong"))
 	}).Methods(http.MethodGet)

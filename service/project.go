@@ -388,7 +388,6 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-
 	// update project
 	project.Content.Json = reqBodyBytes
 	if err := project.Update(e.DB); err != nil {
@@ -460,7 +459,6 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-
 	// update project
 	project.Config.Json = reqBodyBytes
 	if err := project.Update(e.DB); err != nil {
@@ -476,5 +474,50 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrNotFound,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
 
+	// implement require -------------------------
+	userId := tempUserId
+	// -------------------------------------------
+
+	// get project
+	project, err := model.SelectProject(e.DB, userId, projectNo)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	if err := project.Delete(e.DB); err != nil {
+		e.Logger.Errorw("failed to delete project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"project", project)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -195,7 +195,7 @@ func (p Project) Update(db *sqlx.DB) error {
 	return err
 }
 
-func (p Project) Delete(db sqlx.DB) error {
+func (p Project) Delete(db *sqlx.DB) error {
 	_, err := db.Exec(`DELETE FROM project WHERE id = ?;`, p.Id)
 	return err
 }
