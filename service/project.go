@@ -17,7 +17,7 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	count, err := model.SelectProjectCount(e.DB, userId, true)
+	count, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId))
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
 			"error code", ErrInternalServerError,
@@ -29,7 +29,7 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 
 	pagination := GetPaginationFromUrl(r, count)
 
-	projectList, err := model.SelectProjectList(e.DB, userId, pagination.Offset(), pagination.Limit())
+	projectList, err := model.SelectProjectList(e.DB, model.ClassifiedByUserId(userId), pagination.Offset(), pagination.Limit())
 	if err != nil {
 		e.Logger.Errorw("failed to select project list",
 			"error code", ErrInternalServerError,
@@ -83,7 +83,7 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	project, err := model.SelectProject(e.DB, userId, projectNo)
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -129,7 +129,7 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	project, err := model.SelectProject(e.DB, userId, projectNo)
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -168,7 +168,7 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	project, err := model.SelectProject(e.DB, userId, projectNo)
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -207,7 +207,7 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	// -------------------------------------------
 
 	// check project name duplicate
-	if _, err := model.SelectProjectWithName(e.DB, userId, reqBody.Name); err != sql.ErrNoRows {
+	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name)); err != sql.ErrNoRows {
 		if err != nil {
 			e.Logger.Errorw("failed to select project with name",
 				"error code", ErrInternalServerError,
@@ -227,7 +227,7 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get exist project count
-	itemCount, err := model.SelectProjectCount(e.DB, userId, false)
+	itemCount, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId), model.WithStatus(model.StatusNONE))
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
 			"error code", ErrInternalServerError,
@@ -289,7 +289,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	// -------------------------------------------
 
 	// check project name duplicate
-	if _, err := model.SelectProjectWithName(e.DB, userId, reqBody.Name); err != sql.ErrNoRows {
+	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name)); err != sql.ErrNoRows {
 		if err != nil {
 			e.Logger.Errorw("failed to select project with name",
 				"error code", ErrInternalServerError,
@@ -309,7 +309,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get project
-	project, err := model.SelectProject(e.DB, userId, projectNo)
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -386,7 +386,7 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	// -------------------------------------------
 
 	// get project
-	project, err := model.SelectProject(e.DB, userId, projectNo)
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -457,7 +457,7 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	// -------------------------------------------
 
 	// get project
-	project, err := model.SelectProject(e.DB, userId, projectNo)
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
@@ -508,7 +508,7 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	// -------------------------------------------
 
 	// get project
-	project, err := model.SelectProject(e.DB, userId, projectNo)
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",

@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"time"
@@ -30,7 +31,7 @@ func NewProject(userId int64, projectNo int, name, description string) Project {
 		Description: description,
 		Config:      DefaultConfig(),
 		Content:     DefaultContent(),
-		Status:      EXIST,
+		Status:      StatusEXIST,
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 	}
@@ -99,35 +100,141 @@ func (nj NullJson) Value() (driver.Value, error) {
 	return nj.Json.MarshalJSON()
 }
 
-// SelectProjectCount if onlyExist is true, then select exist entity count
-func SelectProjectCount(db *sqlx.DB, userId int64, onlyExist bool) (int, error) {
-	query := `SELECT COUNT(*) FROM project p WHERE p.user_id = ?`
-	if onlyExist {
-		query += ` AND p.status = 'EXIST'`
+// SelectProjectClassifier is conditions for classifying a project
+type SelectProjectClassifier interface {
+	classify(builder *squirrel.SelectBuilder)
+}
+
+type selectProjectClassifierFunc func(builder *squirrel.SelectBuilder)
+
+func (f selectProjectClassifierFunc) classify(builder *squirrel.SelectBuilder) {
+	f(builder)
+}
+
+func ClassifiedByUserId(userId int64) SelectProjectClassifier {
+	return selectProjectClassifierFunc(func(builder *squirrel.SelectBuilder) {
+		*builder = builder.Where(squirrel.Eq{"p.user_id": userId})
+	})
+}
+
+func ClassifiedByProjectNo(userId int64, projectNo int) SelectProjectClassifier {
+	return selectProjectClassifierFunc(func(builder *squirrel.SelectBuilder) {
+		*builder = builder.Where(squirrel.Eq{"p.user_id": userId, "p.project_no": projectNo})
+	})
+}
+
+func ClassifiedByProjectName(userId int64, projectName string) SelectProjectClassifier {
+	return selectProjectClassifierFunc(func(builder *squirrel.SelectBuilder) {
+		*builder = builder.Where(squirrel.Eq{"p.user_id": userId, "p.name": projectName})
+	})
+}
+
+// ProjectSortOrder is define sort order
+type ProjectSortOrder int
+
+const (
+	OrderByCreateTimeAsc ProjectSortOrder = iota
+	OrderByCreateTimeDesc
+)
+
+// SelectProjectOption is optional conditions for classifying a project
+type SelectProjectOption interface {
+	apply(option *selectProjectOption)
+}
+
+type selectProjectOption struct {
+	status Status
+	sortOrder ProjectSortOrder
+}
+
+func newSelectProjectOption() selectProjectOption {
+	return selectProjectOption{
+		status:    StatusEXIST,
+		sortOrder: OrderByCreateTimeAsc,
 	}
-	query += ";"
+}
+
+func (o selectProjectOption) apply(builder *squirrel.SelectBuilder) {
+	// status
+	switch o.status {
+	case StatusNONE:
+	default:
+		*builder = builder.Where(squirrel.Eq{"p.status": o.status})
+	}
+
+	// order by
+	switch o.sortOrder {
+	case OrderByCreateTimeAsc:
+		*builder = builder.OrderBy("p.id ASC")
+	case OrderByCreateTimeDesc:
+		*builder = builder.OrderBy("p.id DESC")
+	}
+}
+
+type selectProjectOptionFunc func(option *selectProjectOption)
+
+func (f selectProjectOptionFunc) apply(option *selectProjectOption) {
+	f(option)
+}
+
+func WithStatus(status Status) SelectProjectOption {
+	return selectProjectOptionFunc(func(option *selectProjectOption) {
+		option.status = status
+	})
+}
+
+func OrderBy(order ProjectSortOrder) SelectProjectOption {
+	return selectProjectOptionFunc(func(option *selectProjectOption) {
+		option.sortOrder = order
+	})
+}
+
+func apply(builder *squirrel.SelectBuilder, classifier SelectProjectClassifier, options ...SelectProjectOption) {
+	classifier.classify(builder)
+	option := newSelectProjectOption()
+	for _, opt := range options {
+		opt.apply(&option)
+	}
+	option.apply(builder)
+}
+
+// SelectProjectCount if onlyExist is true, then select exist entity count
+func SelectProjectCount(db *sqlx.DB, classifier SelectProjectClassifier, options ...SelectProjectOption) (int, error) {
+	builder := squirrel.Select("COUNT(*)").From("project p")
+	apply(&builder, classifier, options...)
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to build sql")
+	}
 
 	var count int
-	err := db.QueryRowx(query, userId).Scan(&count)
+	err = db.QueryRowx(query, args...).Scan(&count)
 
 	return count, err
 }
 
-func SelectProjectList(db *sqlx.DB, userId int64, offset, limit int) ([]Project, error) {
-	rows, err := db.Queryx(
-		` SELECT p.id,
-					   p.user_id,
-					   p.project_no,
-					   p.name,
-					   p.description,
-        			   p.config,
-					   p.content,
-        			   p.status,
-					   p.create_time,
-					   p.update_time
-				FROM project p
-				WHERE p.user_id = ? AND p.status = 'EXIST'
-				LIMIT ?, ?;`, userId, offset, limit)
+func SelectProjectList(db *sqlx.DB, classifier SelectProjectClassifier, offset, limit int, options ...SelectProjectOption) ([]Project, error) {
+	builder := squirrel.
+		Select("p.id",
+			"p.user_id",
+			"p.project_no",
+			"p.name",
+			"p.description",
+			"p.config",
+			"p.content",
+			"p.status",
+			"p.create_time",
+			"p.update_time").
+		From("project p").
+		Offset(uint64(offset)).
+		Limit(uint64(limit))
+	apply(&builder, classifier, options...)
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build sql")
+	}
+
+	rows, err := db.Queryx(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -146,40 +253,27 @@ func SelectProjectList(db *sqlx.DB, userId int64, offset, limit int) ([]Project,
 	return projectList, nil
 }
 
-func SelectProject(db *sqlx.DB, userId int64, projectNo int) (Project, error) {
-	p := Project{}
-	err := db.QueryRowx(
-		`SELECT p.id,
-					   p.user_id,
-					   p.project_no,
-					   p.name,
-					   p.description,
-					   p.config,
-					   p.content,
-       				   p.status,
-					   p.create_time,
-					   p.update_time
-				FROM project p
-				WHERE p.user_id = ? AND p.project_no = ? AND p.status = 'EXIST';`, userId, projectNo).StructScan(&p)
+func SelectProject(db *sqlx.DB, classifier SelectProjectClassifier, options ...SelectProjectOption) (Project, error) {
+	builder := squirrel.
+		Select("p.id",
+		"p.user_id",
+		"p.project_no",
+		"p.name",
+		"p.description",
+		"p.config",
+		"p.content",
+		"p.status",
+		"p.create_time",
+		"p.update_time").
+		From("project p")
+	apply(&builder, classifier, options...)
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return Project{}, errors.Wrap(err, "failed to build sql")
+	}
 
-	return p, err
-}
-
-func SelectProjectWithName(db *sqlx.DB, userId int64, projectName string) (Project, error) {
 	p := Project{}
-	err := db.QueryRowx(
-		`SELECT p.id,
-					   p.user_id,
-					   p.project_no,
-					   p.name,
-					   p.description,
-					   p.config,
-					   p.content,
-       				   p.status,
-					   p.create_time,
-					   p.update_time
-				FROM project p
-				WHERE p.user_id = ? AND p.status = 'EXIST' AND p.name = ?;`, userId, projectName).StructScan(&p)
+	err = db.QueryRowx(query, args...).StructScan(&p)
 
 	return p, err
 }
@@ -229,6 +323,6 @@ func (p Project) Update(db *sqlx.DB) error {
 }
 
 func (p Project) Delete(db *sqlx.DB) error {
-	p.Status = DELETED
+	p.Status = StatusDELETED
 	return p.Update(db)
 }
