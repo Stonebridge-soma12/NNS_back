@@ -135,6 +135,21 @@ type ProjectSortOrder int
 const (
 	OrderByCreateTimeAsc ProjectSortOrder = iota
 	OrderByCreateTimeDesc
+	OrderByUpdateTimeAsc
+	OrderByUpdateTimeDesc
+)
+
+// ProjectFilterType is define filter types
+type ProjectFilterType int
+
+const (
+	FilterByNone ProjectFilterType = iota
+	FilterByName
+	FilterByNameLike
+	FilterByDescription
+	FilterByDescriptionLike
+	FilterByNameOrDescription
+	FilterByNameOrDescriptionLike
 )
 
 // SelectProjectOption is optional conditions for classifying a project
@@ -143,14 +158,18 @@ type SelectProjectOption interface {
 }
 
 type selectProjectOption struct {
-	status Status
-	sortOrder ProjectSortOrder
+	status       Status
+	sortOrder    ProjectSortOrder
+	filterType   ProjectFilterType
+	filterString string
 }
 
 func newSelectProjectOption() selectProjectOption {
 	return selectProjectOption{
-		status:    StatusEXIST,
-		sortOrder: OrderByCreateTimeAsc,
+		status:       StatusEXIST,
+		sortOrder:    OrderByCreateTimeAsc,
+		filterType:   FilterByNone,
+		filterString: "",
 	}
 }
 
@@ -168,6 +187,27 @@ func (o selectProjectOption) apply(builder *squirrel.SelectBuilder) {
 		*builder = builder.OrderBy("p.id ASC")
 	case OrderByCreateTimeDesc:
 		*builder = builder.OrderBy("p.id DESC")
+	case OrderByUpdateTimeAsc:
+		*builder = builder.OrderBy("p.update_time ASC")
+	case OrderByUpdateTimeDesc:
+		*builder = builder.OrderBy("p.update_time DESC")
+	}
+
+	// filter
+	switch o.filterType {
+	case FilterByNone:
+	case FilterByName:
+		*builder = builder.Where(squirrel.Eq{"p.name": o.filterString})
+	case FilterByNameLike:
+		*builder = builder.Where(squirrel.Like{"p.name": "%" + o.filterString + "%"})
+	case FilterByDescription:
+		*builder = builder.Where(squirrel.Eq{"p.description": o.filterString})
+	case FilterByDescriptionLike:
+		*builder = builder.Where(squirrel.Like{"p.description": "%" + o.filterString + "%"})
+	case FilterByNameOrDescription:
+		*builder = builder.Where(squirrel.Or{squirrel.Eq{"p.name": o.filterString}, squirrel.Eq{"p.description": o.filterString}})
+	case FilterByNameOrDescriptionLike:
+		*builder = builder.Where(squirrel.Or{squirrel.Like{"p.name": "%" + o.filterString + "%"}, squirrel.Like{"p.description": "%" + o.filterString + "%"}})
 	}
 }
 
@@ -186,6 +226,13 @@ func WithStatus(status Status) SelectProjectOption {
 func OrderBy(order ProjectSortOrder) SelectProjectOption {
 	return selectProjectOptionFunc(func(option *selectProjectOption) {
 		option.sortOrder = order
+	})
+}
+
+func WithFilter(filterType ProjectFilterType, filterString string) SelectProjectOption {
+	return selectProjectOptionFunc(func(option *selectProjectOption) {
+		option.filterType = filterType
+		option.filterString = filterString
 	})
 }
 
@@ -256,15 +303,15 @@ func SelectProjectList(db *sqlx.DB, classifier SelectProjectClassifier, offset, 
 func SelectProject(db *sqlx.DB, classifier SelectProjectClassifier, options ...SelectProjectOption) (Project, error) {
 	builder := squirrel.
 		Select("p.id",
-		"p.user_id",
-		"p.project_no",
-		"p.name",
-		"p.description",
-		"p.config",
-		"p.content",
-		"p.status",
-		"p.create_time",
-		"p.update_time").
+			"p.user_id",
+			"p.project_no",
+			"p.name",
+			"p.description",
+			"p.config",
+			"p.content",
+			"p.status",
+			"p.create_time",
+			"p.update_time").
 		From("project p")
 	apply(&builder, classifier, options...)
 	query, args, err := builder.ToSql()

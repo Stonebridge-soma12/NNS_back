@@ -17,7 +17,48 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	userId := tempUserId
 	// ----------------------------------------------
 
-	count, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId))
+	// query params
+	var (
+		sortOrder    model.ProjectSortOrder
+		filterType   model.ProjectFilterType
+		filterString string
+	)
+
+	switch r.URL.Query().Get("sort") {
+	case "createTimeAsc":
+		sortOrder = model.OrderByCreateTimeAsc
+	case "createTimeDesc":
+		sortOrder = model.OrderByCreateTimeDesc
+	case "updateTimeAsc":
+		sortOrder = model.OrderByUpdateTimeAsc
+	case "updateTimeDesc":
+		sortOrder = model.OrderByUpdateTimeDesc
+	default:
+		sortOrder = model.OrderByCreateTimeAsc
+	}
+
+	switch r.URL.Query().Get("filterType") {
+	case "name":
+		filterType = model.FilterByName
+	case "nameLike":
+		filterType = model.FilterByNameLike
+	case "description":
+		filterType = model.FilterByDescription
+	case "descriptionLike":
+		filterType = model.FilterByDescriptionLike
+	case "nameOrDescription":
+		filterType = model.FilterByNameOrDescription
+	case "nameOrDescriptionLike":
+		filterType = model.FilterByNameOrDescriptionLike
+	default:
+		filterType = model.FilterByNone
+	}
+
+	filterString = r.URL.Query().Get("filterString")
+
+	count, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId),
+		model.OrderBy(sortOrder),
+		model.WithFilter(filterType, filterString))
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
 			"error code", ErrInternalServerError,
@@ -29,7 +70,9 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 
 	pagination := NewPaginationFromRequest(r, count)
 
-	projectList, err := model.SelectProjectList(e.DB, model.ClassifiedByUserId(userId), pagination.Offset(), pagination.Limit())
+	projectList, err := model.SelectProjectList(e.DB, model.ClassifiedByUserId(userId), pagination.Offset(), pagination.Limit(),
+		model.OrderBy(sortOrder),
+		model.WithFilter(filterType, filterString))
 	if err != nil {
 		e.Logger.Errorw("failed to select project list",
 			"error code", ErrInternalServerError,
