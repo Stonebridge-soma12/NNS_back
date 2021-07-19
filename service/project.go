@@ -115,7 +115,7 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrNotFound,
+			"error code", ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
 		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
@@ -161,7 +161,7 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrNotFound,
+			"error code", ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
 		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
@@ -200,7 +200,7 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrNotFound,
+			"error code", ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
 		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
@@ -311,7 +311,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrNotFound,
+			"error code", ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
 		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
@@ -398,7 +398,7 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrNotFound,
+			"error code", ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
 		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
@@ -469,7 +469,7 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrNotFound,
+			"error code", ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
 		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
@@ -539,7 +539,7 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrNotFound,
+			"error code", ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
 		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
