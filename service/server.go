@@ -33,6 +33,12 @@ func (e Env) Start(port string) {
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectContentHandler).Methods(http.MethodPut)
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectConfigHandler).Methods(http.MethodPut)
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(http.MethodDelete)
+	
+	router.Use(handlers.CORS(
+		handlers.AllowedMethods([]string{"*"}),
+		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowedHeaders([]string{"*"}),
+	))
 
 	srv := &http.Server{
 		Handler: handlers.CombinedLoggingHandler(os.Stderr, router),
