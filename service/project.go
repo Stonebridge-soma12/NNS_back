@@ -1,9 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"io"
 	"net/http"
 	"nns_back/model"
 	"strconv"
@@ -582,4 +584,91 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrInvalidPathParm,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
+
+	// implement require ----------------------------
+	userId := tempUserId
+	// ----------------------------------------------
+
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	// http client
+	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		e.Logger.Errorw("failed to interface conversion",
+			"error code", ErrInternalServerError,
+			"msg", "defaultRoundTripper not an *http.Transport",
+		)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+	defaultTransport := *defaultTransportPointer // dereference it to get a copy of the struct that the pointer points to
+	defaultTransport.MaxIdleConns = 100
+	defaultTransport.MaxIdleConnsPerHost = 100
+	client := &http.Client{Transport: &defaultTransport}
+
+	// make request body
+	payload := make(map[string]interface{})
+	payload["content"] = project.Content.Json
+	payload["config"] = project.Config.Json
+	jsonedPayload, err := json.Marshal(payload)
+	if err != nil {
+		e.Logger.Errorw("failed to json marshal",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	// send request
+	resp, err := client.Post("http://13.125.217.53:8080/make-python", "application/json", bytes.NewBuffer(jsonedPayload))
+	if err != nil {
+		e.Logger.Errorw("failed to generate python code",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	// response
+	w.Header().Set("Content-Disposition", "attachment; filename=model.py")
+	w.Header().Set("Content-Type", "text/x-python; charset=utf-8")
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		e.Logger.Errorw("failed to copy file",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
 }
