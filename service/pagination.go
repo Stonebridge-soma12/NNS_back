@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	defaultCurPage  = 1
-	defaultPageSize = 10
-	maxPageSize     = 1000
+	_defaultCurPage  = 1
+	_defaultPageSize = 10
+	_maxPageSize     = 1000
 )
 
 const (
@@ -39,10 +39,10 @@ func NewPaginationFromRequest(r *http.Request, itemCount int) Pagination {
 func parseQueryParam(r *http.Request) (curPage, pageSize int) {
 	var err error
 	if curPage, err = strconv.Atoi(r.URL.Query().Get(curPageQueryParamKey)); err != nil {
-		curPage = defaultCurPage
+		curPage = _defaultCurPage
 	}
 	if pageSize, err = strconv.Atoi(r.URL.Query().Get(pageSizeQueryParamKey)); err != nil {
-		pageSize = defaultPageSize
+		pageSize = _defaultPageSize
 	}
 
 	return
@@ -57,11 +57,11 @@ func NewPagination(curPage, pageSize, itemCount int) Pagination {
 
 	// set page size
 	if pageSize < 1 {
-		pageSize = defaultPageSize
+		pageSize = _defaultPageSize
 	}
 
-	if pageSize > maxPageSize {
-		pageSize = maxPageSize
+	if pageSize > _maxPageSize {
+		pageSize = _maxPageSize
 	}
 
 	// set last page
