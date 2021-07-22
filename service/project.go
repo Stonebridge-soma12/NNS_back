@@ -651,7 +651,7 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send request
-	resp, err := client.Post("http://13.125.217.53:8080/make-python", "application/json", bytes.NewBuffer(jsonedPayload))
+	resp, err := client.Post("http://54.180.153.56:8080/make-python", "application/json", bytes.NewBuffer(jsonedPayload))
 	if err != nil {
 		e.Logger.Errorw("failed to generate python code",
 			"error code", ErrInternalServerError,
