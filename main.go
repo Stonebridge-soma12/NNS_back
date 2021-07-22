@@ -41,10 +41,5 @@ func main() {
 	db.SetMaxIdleConns(10)
 
 	// start server
-	server := service.Env{
-		Logger:       sugar,
-		DB:           db,
-		SessionStore: service.SetSessionStore([]byte(os.Getenv("SESSKEY"))),
-	}
-	server.Start(":8080")
+	service.Start(":8080", sugar, db, service.SetSessionStore([]byte(os.Getenv("SESSKEY"))))
 }

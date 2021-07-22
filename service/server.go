@@ -11,39 +11,56 @@ import (
 )
 
 type Env struct {
-	Logger       *zap.SugaredLogger
-	DB           *sqlx.DB
-	SessionStore sessions.Store
+	Logger *zap.SugaredLogger
+	DB     *sqlx.DB
 }
 
-func (e Env) Start(port string) {
+var (
+	_Get    = []string{http.MethodGet, http.MethodOptions}
+	_Post   = []string{http.MethodPost, http.MethodOptions}
+	_Put    = []string{http.MethodPut, http.MethodOptions}
+	_Delete = []string{http.MethodDelete, http.MethodOptions}
+)
+
+func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore sessions.Store) {
+	e := Env{
+		Logger: logger,
+		DB:     db,
+	}
 	e.Logger.Info("Start server")
 
+	// default router
 	router := mux.NewRouter()
 
-	router.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("pong"))
-	}).Methods(http.MethodGet, http.MethodOptions)
+	auth := Auth{
+		Env:          e,
+		SessionStore: sessionStore,
+	}
+	authRouter := router.PathPrefix("").Subrouter()
+	authRouter.Use(auth.middleware)
 
-	router.HandleFunc("/api/signup", e.SignUpHandler).Methods(http.MethodPost)
-	router.HandleFunc("/api/login", e.LoginHandler).Methods(http.MethodPost)
-	router.HandleFunc("/api/logout", e.LogoutHandler).Methods(http.MethodDelete)
-	router.HandleFunc("/api/secret", e.Secret).Methods(http.MethodGet)
+	// auth
+	router.HandleFunc("/api/login", auth.LoginHandler).Methods(_Post...)
+	authRouter.HandleFunc("/api/logout", auth.LogoutHandler).Methods(_Delete...)
+
+	// user
+	router.HandleFunc("/api/user", e.SignUpHandler).Methods(_Post...)
 
 	// project
-	router.HandleFunc("/api/projects", e.GetProjectListHandler).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.GetProjectHandler).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.GetProjectContentHandler).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.GetProjectConfigHandler).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/code", e.GetPythonCodeHandler).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/api/projects", e.GetProjectListHandler).Methods(_Get...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.GetProjectHandler).Methods(_Get...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.GetProjectContentHandler).Methods(_Get...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.GetProjectConfigHandler).Methods(_Get...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/code", e.GetPythonCodeHandler).Methods(_Get...)
 
-	router.HandleFunc("/api/project", e.CreateProjectHandler).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/api/project", e.CreateProjectHandler).Methods(_Post...)
 
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/info", e.UpdateProjectInfoHandler).Methods(http.MethodPut, http.MethodOptions)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectContentHandler).Methods(http.MethodPut, http.MethodOptions)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectConfigHandler).Methods(http.MethodPut, http.MethodOptions)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/info", e.UpdateProjectInfoHandler).Methods(_Put...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectContentHandler).Methods(_Put...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectConfigHandler).Methods(_Put...)
 
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(http.MethodDelete, http.MethodOptions)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
+
 
 	router.Use(handlers.CORS(
 		handlers.AllowedMethods([]string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
