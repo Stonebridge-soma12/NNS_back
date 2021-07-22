@@ -237,6 +237,7 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	writeJson(w, http.StatusOK, project.Config.Json)
 }
 
+// TODO: check name, description length limit
 func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := CreateProjectRequestBody{}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
@@ -308,6 +309,7 @@ type CreateProjectResponseBody struct {
 	ProjectNo int `json:"projectNo"`
 }
 
+// TODO: check name, description length limit
 // UpdateProjectInfoHandler update project name, description
 func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
@@ -395,6 +397,7 @@ type UpdateProjectInfoRequestBody struct {
 	Description string `json:"description"`
 }
 
+// TODO: check name, description length limit
 // UpdateProjectContentHandler update project content
 func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
@@ -466,6 +469,7 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// TODO: check name, description length limit
 // UpdateProjectConfigHandler update project config
 func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])

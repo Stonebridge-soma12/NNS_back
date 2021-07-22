@@ -21,15 +21,35 @@ func writeJson(w http.ResponseWriter, code int, data interface{}) error {
 }
 
 // write error response helper
-type ErrBody struct {
-	StatusCode int    `json:"statusCode"` // http status code
-	ErrMsg     ErrMsg `json:"errMsg"`
+type additionalData interface {
+	apply(*map[string]interface{})
 }
 
-func writeError(w http.ResponseWriter, code int, errMsg ErrMsg) error {
-	body := ErrBody{
-		StatusCode: code,
-		ErrMsg:     errMsg,
+type additionalDataFunc func(*map[string]interface{})
+
+func (f additionalDataFunc) apply(m *map[string]interface{}) {
+	f(m)
+}
+
+// col inserts additional data to the error message
+func col(key string, value interface{}) additionalData {
+	return additionalDataFunc(func(m *map[string]interface{}) {
+		(*m)[key] = value
+	})
+}
+
+const (
+	target = "target"
+)
+
+func writeError(w http.ResponseWriter, code int, errMsg ErrMsg, additionalColumns ...additionalData) error {
+	body := make(map[string]interface{})
+	body["statusCode"] = code
+	body["errMsg"] = errMsg
+
+	for _, c := range additionalColumns {
+		c.apply(&body)
 	}
+
 	return writeJson(w, code, body)
 }

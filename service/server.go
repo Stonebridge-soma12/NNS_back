@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"net/http"
@@ -10,8 +11,9 @@ import (
 )
 
 type Env struct {
-	Logger *zap.SugaredLogger
-	DB     *sqlx.DB
+	Logger       *zap.SugaredLogger
+	DB           *sqlx.DB
+	SessionStore sessions.Store
 }
 
 func (e Env) Start(port string) {
@@ -22,6 +24,11 @@ func (e Env) Start(port string) {
 	router.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("pong"))
 	}).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc("/api/signup", e.SignUpHandler).Methods(http.MethodPost)
+	router.HandleFunc("/api/login", e.LoginHandler).Methods(http.MethodPost)
+	router.HandleFunc("/api/logout", e.LogoutHandler).Methods(http.MethodDelete)
+	router.HandleFunc("/api/secret", e.Secret).Methods(http.MethodGet)
 
 	// project
 	router.HandleFunc("/api/projects", e.GetProjectListHandler).Methods(http.MethodGet, http.MethodOptions)

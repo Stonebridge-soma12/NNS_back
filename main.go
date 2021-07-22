@@ -42,8 +42,9 @@ func main() {
 
 	// start server
 	server := service.Env{
-		Logger: sugar,
-		DB: db,
+		Logger:       sugar,
+		DB:           db,
+		SessionStore: service.SetSessionStore([]byte(os.Getenv("SESSKEY"))),
 	}
 	server.Start(":8080")
 }
