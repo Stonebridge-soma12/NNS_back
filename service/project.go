@@ -14,6 +14,18 @@ import (
 
 const tempUserId int64 = 1
 
+type GetProjectListResponseBody struct {
+	Projects   []GetProjectListResponseProjectBody `json:"projects"`
+	Pagination Pagination                          `json:"pagination"`
+}
+
+type GetProjectListResponseProjectBody struct {
+	ProjectNo   int       `json:"projectNo"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	LastModify  time.Time `json:"lastModify"`
+}
+
 func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	// implement require ----------------------------
 	userId := tempUserId
@@ -99,18 +111,6 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJson(w, http.StatusOK, resp)
-}
-
-type GetProjectListResponseBody struct {
-	Projects   []GetProjectListResponseProjectBody `json:"projects"`
-	Pagination Pagination                          `json:"pagination"`
-}
-
-type GetProjectListResponseProjectBody struct {
-	ProjectNo   int       `json:"projectNo"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	LastModify  time.Time `json:"lastModify"`
 }
 
 func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
