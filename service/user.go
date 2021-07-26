@@ -3,10 +3,13 @@ package service
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"nns_back/model"
 	"regexp"
+	"unicode"
+	"unicode/utf8"
 )
 
 type SignUpHandlerRequestBody struct {
@@ -21,8 +24,6 @@ const (
 	_pwMaxLen = 72
 
 	_idRegexp = `[a-zA-Z0-9]{2,50}`
-	// TODO: complete password regexp
-	_pwRegexp = `([0-9a-zA-Z^\w\d\s]|_){8,72}`
 )
 
 // TODO: email authentication
@@ -53,16 +54,7 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check PW validation
-	match, err = regexp.MatchString(_pwRegexp, reqBody.PW)
-
-	if err != nil {
-		e.Logger.Errorw("failed to regexp compile",
-			"error code", ErrInternalServerError,
-			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
-	}
-	if !match {
+	if err := validatePassword(reqBody.PW); err != nil {
 		e.Logger.Debug(reqBody.PW)
 		writeError(w, http.StatusBadRequest, ErrInvalidFormat, col(target, "password"))
 		return
@@ -108,4 +100,29 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+func validatePassword(password string) error {
+	length := utf8.RuneCountInString(password)
+	if length < _pwMinLen {
+		return fmt.Errorf("password must be at least %d characters", _pwMinLen)
+	}
+	if length > _pwMaxLen {
+		return fmt.Errorf("password must be %d characters or less", _pwMaxLen)
+	}
+
+next:
+	for name, classes := range map[string][]*unicode.RangeTable{
+		"alphabet": {unicode.Upper, unicode.Lower, unicode.Title},
+		"numeric":  {unicode.Number, unicode.Digit},
+		"special":  {unicode.Space, unicode.Symbol, unicode.Punct, unicode.Mark},
+	} {
+		for _, character := range password {
+			if unicode.IsOneOf(classes, character) {
+				continue next
+			}
+		}
+		return fmt.Errorf("password must have at least one %s character", name)
+	}
+	return nil
 }
