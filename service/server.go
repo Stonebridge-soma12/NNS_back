@@ -80,5 +80,5 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Handler: handlers.CombinedLoggingHandler(os.Stderr, router),
 		Addr:    port,
 	}
-	e.Logger.Fatal(srv.ListenAndServe())
+	e.Logger.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
 }
