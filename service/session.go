@@ -87,6 +87,9 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	session.Values["authenticated"] = true
 	session.Values["userId"] = user.Id
+	session.Options.SameSite = http.SameSiteNoneMode
+	session.Options.Secure = true
+	session.Options.HttpOnly = true
 	if err := session.Save(r, w); err != nil {
 		a.Logger.Errorw("failed to save session",
 			"error code", ErrInternalServerError,
@@ -109,6 +112,9 @@ func (a Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session.Values["authenticated"] = false
+	session.Options.SameSite = http.SameSiteNoneMode
+	session.Options.Secure = true
+	session.Options.HttpOnly = true
 	if err := session.Save(r, w); err != nil {
 		a.Logger.Errorw("failed to save session",
 			"error code", ErrInternalServerError,
