@@ -126,6 +126,8 @@ func (a Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+const _tempUserID int64 = 1
+
 func (a Auth) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := a.SessionStore.Get(r, _sessionCookieName)
@@ -138,8 +140,13 @@ func (a Auth) middleware(next http.Handler) http.Handler {
 		}
 		a.Logger.Debug(session.Values)
 		if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
-			writeError(w, http.StatusUnauthorized, ErrLoginRequired)
-			return
+			// for development editor
+			a.Logger.Debug("not authenticated. set userId 1")
+			session.Values["userId"] = _tempUserID
+
+			//
+			//writeError(w, http.StatusUnauthorized, ErrLoginRequired)
+			//return
 		}
 
 		userId := session.Values["userId"].(int64)
