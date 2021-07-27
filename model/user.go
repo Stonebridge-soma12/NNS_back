@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"time"
@@ -72,20 +73,49 @@ func (nb NullBytes) Value() (driver.Value, error) {
 	return nb.Bytes, nil
 }
 
-func SelectUser(db *sqlx.DB, loginID string) (User, error) {
+type SelectUserClassifier interface {
+	classify(builder *squirrel.SelectBuilder)
+}
+
+type selectUserClassifierFunc func(builder *squirrel.SelectBuilder)
+
+func (f selectUserClassifierFunc) classify(builder *squirrel.SelectBuilder) {
+	f(builder)
+}
+
+func ClassifiedById(userId int64) SelectUserClassifier {
+	return selectUserClassifierFunc(func(builder *squirrel.SelectBuilder) {
+		*builder = builder.Where(squirrel.Eq{"u.id": userId})
+	})
+}
+
+func ClassifiedByLoginId(loginId string) SelectUserClassifier {
+	return selectUserClassifierFunc(func(builder *squirrel.SelectBuilder) {
+		*builder = builder.Where(squirrel.Eq{"u.login_id": loginId})
+	})
+}
+
+func SelectUser(db *sqlx.DB, classifier SelectUserClassifier) (User, error) {
+	builder := squirrel.Select(
+		"u.id",
+		"u.name",
+		"u.profile_image",
+		"u.description",
+		"u.login_id",
+		"u.login_pw",
+		"u.status",
+		"u.create_time",
+		"u.update_time").
+		From("user u").
+		Where(squirrel.Eq{"u.status": StatusEXIST})
+	classifier.classify(&builder)
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return User{}, errors.Wrap(err, "failed to build sql")
+	}
+
 	u := User{}
-	err := db.QueryRowx(
-		`SELECT u.id,
-					   u.name,
-					   u.profile_image,
-					   u.description,
-					   u.login_id,
-					   u.login_pw,
-					   u.status,
-					   u.create_time,
-					   u.update_time
-				FROM user u 
-				WHERE u.login_id = ? AND u.status = ?;`, loginID, StatusEXIST).StructScan(&u)
+	err = db.QueryRowx(query, args...).StructScan(&u)
 	return u, err
 }
 

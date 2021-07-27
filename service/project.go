@@ -27,11 +27,12 @@ type GetProjectListResponseProjectBody struct {
 func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	// query params
@@ -129,11 +130,12 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
@@ -180,11 +182,12 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
@@ -224,11 +227,12 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
@@ -268,11 +272,12 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	// check project name duplicate
@@ -356,11 +361,12 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	// check project name duplicate
@@ -459,11 +465,12 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	// get project
@@ -536,11 +543,12 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	// get project
@@ -592,11 +600,12 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	// get project
@@ -646,11 +655,12 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
-			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
+		//e.Logger.Errorw("failed to conversion interface to int64",
+		//	"error code", ErrInternalServerError,
+		//	"context value", r.Context().Value("userId"))
+		//writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		//return
+		userId = _tempUserID
 	}
 
 	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))

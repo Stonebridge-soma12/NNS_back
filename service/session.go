@@ -38,7 +38,7 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := model.SelectUser(a.DB, reqBody.ID)
+	user, err := model.SelectUser(a.DB, model.ClassifiedByLoginId(reqBody.ID))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// invalid login id
@@ -140,13 +140,8 @@ func (a Auth) middleware(next http.Handler) http.Handler {
 		}
 		a.Logger.Debug(session.Values)
 		if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
-			// for development editor
-			a.Logger.Debug("not authenticated. set userId 1")
-			session.Values["userId"] = _tempUserID
-
-			//
-			//writeError(w, http.StatusUnauthorized, ErrLoginRequired)
-			//return
+			writeError(w, http.StatusUnauthorized, ErrLoginRequired)
+			return
 		}
 
 		userId := session.Values["userId"].(int64)

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"nns_back/model"
 	"regexp"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -61,7 +62,7 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check ID duplication
-	if _, err := model.SelectUser(e.DB, reqBody.ID); err != sql.ErrNoRows {
+	if _, err := model.SelectUser(e.DB, model.ClassifiedByLoginId(reqBody.ID)); err != sql.ErrNoRows {
 		if err != nil {
 			// error occur
 			e.Logger.Errorw("failed to select user",
@@ -126,3 +127,63 @@ next:
 	}
 	return nil
 }
+
+type GetUserHandlerResponseBody struct {
+	Name         string    `json:"name"`
+	ProfileImage string    `json:"profileImage"`
+	Description  string    `json:"description"`
+	CreateTime   time.Time `json:"createTime"`
+	UpdateTime   time.Time `json:"updateTime"`
+}
+
+func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		e.Logger.Errorw("failed to conversion interface to int64",
+			"error code", ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
+	if err != nil {
+		e.Logger.Errorw("failed to select user",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	resp := GetUserHandlerResponseBody{
+		Name:         user.Name,
+		ProfileImage: user.ProfileImage.String,
+		Description:  user.Description.String,
+		CreateTime:   user.CreateTime,
+		UpdateTime:   user.UpdateTime,
+	}
+	writeJson(w, http.StatusOK, resp)
+}
+
+//func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+//	userId, ok := r.Context().Value("userId").(int64)
+//	if !ok {
+//		e.Logger.Errorw("failed to conversion interface to int64",
+//			"error code", ErrInternalServerError,
+//			"context value", r.Context().Value("userId"))
+//		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+//		return
+//	}
+//}
+//
+//func (e Env) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+//	userId, ok := r.Context().Value("userId").(int64)
+//	if !ok {
+//		e.Logger.Errorw("failed to conversion interface to int64",
+//			"error code", ErrInternalServerError,
+//			"context value", r.Context().Value("userId"))
+//		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+//		return
+//	}
+//}
