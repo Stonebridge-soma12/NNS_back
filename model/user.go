@@ -15,6 +15,8 @@ type User struct {
 	Name         string         `db:"name"`
 	ProfileImage sql.NullString `db:"profile_image"`
 	Description  sql.NullString `db:"description"`
+	Email        sql.NullString `db:"email"` // TODO: e-mail verification
+	WebSite      sql.NullString `db:"web_site"`
 	LoginId      sql.NullString `db:"login_id"`
 	LoginPw      NullBytes      `db:"login_pw"`
 	Status       Status         `db:"status"`
@@ -27,6 +29,8 @@ func NewUser(id string, pw []byte) User {
 		Name:         "Anonymous",
 		ProfileImage: sql.NullString{},
 		Description:  sql.NullString{},
+		Email:        sql.NullString{},
+		WebSite:      sql.NullString{},
 		LoginId: sql.NullString{
 			String: id,
 			Valid:  true,
@@ -101,6 +105,8 @@ func SelectUser(db *sqlx.DB, classifier SelectUserClassifier) (User, error) {
 		"u.name",
 		"u.profile_image",
 		"u.description",
+		"u.email",
+		"u.web_site",
 		"u.login_id",
 		"u.login_pw",
 		"u.status",
@@ -125,6 +131,8 @@ func (u User) Insert(db *sqlx.DB) (int64, error) {
 				(name,
 				 profile_image,
 				 description,
+				 email,
+				 web_site,
 				 login_id,
 				 login_pw,
 				 status,
@@ -133,6 +141,8 @@ func (u User) Insert(db *sqlx.DB) (int64, error) {
 				VALUES (:name,
 						:profile_image,
 						:description,
+				        :email,
+				        :web_site,
 						:login_id,
 						:login_pw,
 						:status,
@@ -154,6 +164,8 @@ func (u User) Update(db *sqlx.DB) error {
 				SET name          = :name,
 					profile_image = :profile_image,
 					description   = :description,
+				    email		  = :email,
+				    web_site 	  = :web_site,
 					login_id      = :login_id,
 					login_pw      = :login_pw,
 					status        = :status,

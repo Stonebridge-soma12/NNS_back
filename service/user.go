@@ -132,10 +132,13 @@ type GetUserHandlerResponseBody struct {
 	Name         string    `json:"name"`
 	ProfileImage string    `json:"profileImage"`
 	Description  string    `json:"description"`
+	Email        string    `json:"email"`
+	WebSite      string    `json:"webSite"`
 	CreateTime   time.Time `json:"createTime"`
 	UpdateTime   time.Time `json:"updateTime"`
 }
 
+// TODO: Email verification, WebSite url syntax validation
 func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -160,6 +163,8 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		Name:         user.Name,
 		ProfileImage: user.ProfileImage.String,
 		Description:  user.Description.String,
+		Email:        user.Email.String,
+		WebSite:      user.WebSite.String,
 		CreateTime:   user.CreateTime,
 		UpdateTime:   user.UpdateTime,
 	}
