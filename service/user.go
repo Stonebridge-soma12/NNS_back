@@ -171,24 +171,161 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	writeJson(w, http.StatusOK, resp)
 }
 
-//func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
-//	userId, ok := r.Context().Value("userId").(int64)
-//	if !ok {
-//		e.Logger.Errorw("failed to conversion interface to int64",
-//			"error code", ErrInternalServerError,
-//			"context value", r.Context().Value("userId"))
-//		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-//		return
-//	}
-//}
-//
-//func (e Env) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
-//	userId, ok := r.Context().Value("userId").(int64)
-//	if !ok {
-//		e.Logger.Errorw("failed to conversion interface to int64",
-//			"error code", ErrInternalServerError,
-//			"context value", r.Context().Value("userId"))
-//		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-//		return
-//	}
-//}
+type UpdateUserHandlerRequestBody struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Email       string `json:"email"`
+	WebSite     string `json:"webSite"`
+	// TODO: implement update user profile image API
+}
+
+func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		e.Logger.Errorw("failed to conversion interface to int64",
+			"error code", ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	reqBody := UpdateUserHandlerRequestBody{}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		e.Logger.Warnw("failed to json decode request body",
+			"error code", ErrInvalidRequestBody,
+			"error", err)
+		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		return
+	}
+
+	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
+	if err != nil {
+		e.Logger.Errorw("failed to select user",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	user.Name = reqBody.Name
+	user.Description = sql.NullString{
+		String: reqBody.Description,
+		Valid:  reqBody.Description != "",
+	}
+	user.Email = sql.NullString{
+		String: reqBody.Email,
+		Valid:  reqBody.Email != "",
+	}
+	user.WebSite = sql.NullString{
+		String: reqBody.WebSite,
+		Valid:  reqBody.WebSite != "",
+	}
+
+	if err := user.Update(e.DB); err != nil {
+		e.Logger.Errorw("failed to update user",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type UpdateUserPasswordHandlerRequestBody struct {
+	PW string `json:"pw"`
+}
+
+func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		e.Logger.Errorw("failed to conversion interface to int64",
+			"error code", ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	reqBody := UpdateUserPasswordHandlerRequestBody{}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		e.Logger.Warnw("failed to json decode request body",
+			"error code", ErrInvalidRequestBody,
+			"error", err)
+		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		return
+	}
+
+	// check PW validation
+	if err := validatePassword(reqBody.PW); err != nil {
+		e.Logger.Debug(reqBody.PW)
+		writeError(w, http.StatusBadRequest, ErrInvalidFormat, col(target, "password"))
+		return
+	}
+
+	// hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(reqBody.PW), bcrypt.DefaultCost)
+	if err != nil {
+		e.Logger.Errorw("failed to generate hashed password",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+	e.Logger.Debugw("password hashed finish",
+		"hashed password", hashedPassword,
+		"hashed password len", len(hashedPassword))
+
+	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
+	if err != nil {
+		e.Logger.Errorw("failed to select user",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	user.LoginPw = model.NullBytes{
+		Bytes: hashedPassword,
+		Valid: true,
+	}
+
+	if err := user.Update(e.DB); err != nil {
+		e.Logger.Errorw("failed to update user",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a Auth) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		a.Logger.Errorw("failed to conversion interface to int64",
+			"error code", ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	user, err := model.SelectUser(a.DB, model.ClassifiedById(userId))
+	if err != nil {
+		a.Logger.Errorw("failed to select user",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	if err := user.Delete(a.DB); err != nil {
+		a.Logger.Errorw("failed to delete user",
+			"error code", ErrInternalServerError,
+			"error", err)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	a.LogoutHandler(w, r)
+}

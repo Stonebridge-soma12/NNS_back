@@ -46,8 +46,9 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	// user
 	router.HandleFunc("/api/user", e.SignUpHandler).Methods(_Post...)
 	authRouter.HandleFunc("/api/user", e.GetUserHandler).Methods(_Get...)
-	//authRouter.HandleFunc("/api/user", ).Methods(_Put...)
-	//authRouter.HandleFunc("/api/user", ).Methods(_Delete...)
+	authRouter.HandleFunc("/api/user", e.UpdateUserHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/user/password", e.UpdateUserPasswordHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/user", auth.DeleteUserHandler).Methods(_Delete...)
 
 	// project
 	router.HandleFunc("/api/projects", e.GetProjectListHandler).Methods(_Get...)
