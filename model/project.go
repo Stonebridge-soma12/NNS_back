@@ -1,9 +1,7 @@
 package model
 
 import (
-	"database/sql/driver"
 	"encoding/json"
-	"fmt"
 	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -63,41 +61,6 @@ func DefaultContent() NullJson {
 		Json:  json.RawMessage(defaultBytes),
 		Valid: true,
 	}
-}
-
-// NullJson represents a JSON that may be null.
-// NullJson implements the Scanner interface so
-// it can be used as a scan destination
-type NullJson struct {
-	Json  json.RawMessage
-	Valid bool // Valid is true if Json is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (nj *NullJson) Scan(value interface{}) error {
-	if value == nil {
-		nj.Json, nj.Valid = nil, false
-		return nil
-	}
-	nj.Valid = true
-
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New(fmt.Sprintf("failed to unmarshal Json value: %v", value))
-	}
-
-	result := json.RawMessage{}
-	err := json.Unmarshal(bytes, &result)
-	nj.Json = result
-	return err
-}
-
-// Value implements the driver Valuer interface.
-func (nj NullJson) Value() (driver.Value, error) {
-	if !nj.Valid {
-		return nil, nil
-	}
-	return nj.Json.MarshalJSON()
 }
 
 // SelectProjectClassifier is conditions for classifying a project

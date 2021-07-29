@@ -2,8 +2,6 @@ package model
 
 import (
 	"database/sql"
-	"database/sql/driver"
-	"fmt"
 	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -43,38 +41,6 @@ func NewUser(id string, pw []byte) User {
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
-}
-
-// NullBytes represents a JSON that may be null.
-// NullBytes implements the Scanner interface so
-// it can be used as a scan destination
-type NullBytes struct {
-	Bytes []byte
-	Valid bool
-}
-
-// Scan implements the Scanner interface.
-func (nb *NullBytes) Scan(value interface{}) error {
-	if value == nil {
-		nb.Bytes, nb.Valid = nil, false
-		return nil
-	}
-	nb.Valid = true
-
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New(fmt.Sprintf("failed to interface conversion"))
-	}
-	nb.Bytes = bytes
-	return nil
-}
-
-// Value implements the driver Valuer interface.
-func (nb NullBytes) Value() (driver.Value, error) {
-	if !nb.Valid {
-		return nil, nil
-	}
-	return nb.Bytes, nil
 }
 
 type SelectUserClassifier interface {
