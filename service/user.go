@@ -27,6 +27,9 @@ const (
 	_idRegexp = `[a-zA-Z0-9]{2,50}`
 )
 
+// TODO: move to environment variable
+const defaultUserProfileImage = "https://s3.ap-northeast-2.amazonaws.com/image.nns/default_profile.png"
+
 // TODO: email authentication
 func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	// bind request body
@@ -159,9 +162,23 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	profileImage := defaultUserProfileImage
+	if user.ProfileImage.Valid {
+		image, err := model.SelectImage(e.DB, userId, user.ProfileImage.Int64)
+		if err != nil {
+			e.Logger.Errorw("failed to select image",
+				"error code", ErrInternalServerError,
+				"error", err)
+			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			return
+		}
+
+		profileImage = image.Url
+	}
+
 	resp := GetUserHandlerResponseBody{
 		Name:         user.Name,
-		ProfileImage: user.ProfileImage.String,
+		ProfileImage: profileImage,
 		Description:  user.Description.String,
 		Email:        user.Email.String,
 		WebSite:      user.WebSite.String,
@@ -172,11 +189,11 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateUserHandlerRequestBody struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Email       string `json:"email"`
-	WebSite     string `json:"webSite"`
-	// TODO: implement update user profile image API
+	ProfileImage int64  `json:"profileImage"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Email        string `json:"email"`
+	WebSite      string `json:"webSite"`
 }
 
 func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -219,6 +236,29 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	user.WebSite = sql.NullString{
 		String: reqBody.WebSite,
 		Valid:  reqBody.WebSite != "",
+	}
+
+	if reqBody.ProfileImage != 0 {
+		if _, err := model.SelectImage(e.DB, userId, reqBody.ProfileImage); err != nil {
+			if err == sql.ErrNoRows {
+				e.Logger.Warnw("invalid image id",
+					"request image ID", reqBody.ProfileImage,
+					"request user ID", userId)
+				writeError(w, http.StatusBadRequest, ErrInvalidImageId)
+				return
+			}
+
+			e.Logger.Errorw("failed to select image",
+				"error code", ErrInternalServerError,
+				"error", err)
+			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			return
+		}
+	}
+
+	user.ProfileImage = sql.NullInt64{
+		Int64: reqBody.ProfileImage,
+		Valid: reqBody.ProfileImage != 0,
 	}
 
 	if err := user.Update(e.DB); err != nil {

@@ -11,7 +11,7 @@ import (
 type User struct {
 	Id           int64          `db:"id"`
 	Name         string         `db:"name"`
-	ProfileImage sql.NullString `db:"profile_image"`
+	ProfileImage sql.NullInt64  `db:"profile_image"`
 	Description  sql.NullString `db:"description"`
 	Email        sql.NullString `db:"email"` // TODO: e-mail verification
 	WebSite      sql.NullString `db:"web_site"`
@@ -25,7 +25,7 @@ type User struct {
 func NewUser(id string, pw []byte) User {
 	return User{
 		Name:         "Anonymous",
-		ProfileImage: sql.NullString{},
+		ProfileImage: sql.NullInt64{},
 		Description:  sql.NullString{},
 		Email:        sql.NullString{},
 		WebSite:      sql.NullString{},

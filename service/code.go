@@ -10,6 +10,7 @@ const (
 	ErrInvalidQueryParm   ErrMsg = "Invalid Query Parameter"
 	ErrInvalidRequestBody ErrMsg = "Invalid Request Body"
 	ErrInvalidFormat      ErrMsg = "Invalid Format"
+	ErrInvalidImageId     ErrMsg = "Invalid Image ID"
 
 	// 401
 	ErrLoginRequired         ErrMsg = "Login Required"
