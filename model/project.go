@@ -121,22 +121,31 @@ type SelectProjectOption interface {
 }
 
 type selectProjectOption struct {
-	status       Status
-	sortOrder    ProjectSortOrder
-	filterType   ProjectFilterType
-	filterString string
+	excludeProjectId int64
+	status           Status
+	sortOrder        ProjectSortOrder
+	filterType       ProjectFilterType
+	filterString     string
 }
 
 func newSelectProjectOption() selectProjectOption {
 	return selectProjectOption{
-		status:       StatusEXIST,
-		sortOrder:    OrderByCreateTimeAsc,
-		filterType:   FilterByNone,
-		filterString: "",
+		excludeProjectId: int64(0),
+		status:           StatusEXIST,
+		sortOrder:        OrderByCreateTimeAsc,
+		filterType:       FilterByNone,
+		filterString:     "",
 	}
 }
 
 func (o selectProjectOption) apply(builder *squirrel.SelectBuilder) {
+	// exclude project id
+	switch o.excludeProjectId {
+	case int64(0):
+	default:
+		*builder = builder.Where(squirrel.NotEq{"p.id": o.excludeProjectId})
+	}
+
 	// status
 	switch o.status {
 	case StatusNONE:
@@ -178,6 +187,12 @@ type selectProjectOptionFunc func(option *selectProjectOption)
 
 func (f selectProjectOptionFunc) apply(option *selectProjectOption) {
 	f(option)
+}
+
+func WithExcludeProjectId(projectId int64) SelectProjectOption {
+	return selectProjectOptionFunc(func(option *selectProjectOption) {
+		option.excludeProjectId = projectId
+	})
 }
 
 func WithStatus(status Status) SelectProjectOption {

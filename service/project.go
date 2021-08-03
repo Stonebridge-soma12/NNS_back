@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"nns_back/model"
 	"strconv"
 	"time"
+	"unicode/utf8"
 )
 
 type GetProjectListResponseBody struct {
@@ -255,11 +257,50 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	writeJson(w, http.StatusOK, project.Config.Json)
 }
 
-// TODO: check name, description length limit
+type CreateProjectRequestBody struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (c CreateProjectRequestBody) validate() error {
+	if err := checkProjectNameLength(c.Name); err != nil {
+		return err
+	}
+
+	if err := checkProjectDescriptionLength(c.Description); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+const (
+	_maximumProjectNameLength        = 45
+	_maximumProjectDescriptionLength = 2000
+)
+
+func checkProjectNameLength(projectName string) error {
+	if utf8.RuneCountInString(projectName) > _maximumProjectNameLength {
+		return errors.New("project name too long")
+	}
+	return nil
+}
+
+func checkProjectDescriptionLength(projectDescription string) error {
+	if utf8.RuneCountInString(projectDescription) > _maximumProjectDescriptionLength {
+		return errors.New("project description too long")
+	}
+	return nil
+}
+
+type CreateProjectResponseBody struct {
+	ProjectNo int `json:"projectNo"`
+}
+
 func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := CreateProjectRequestBody{}
-	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		e.Logger.Warnw("failed to json decode request body",
+	if err := bindJson(r.Body, &reqBody); err != nil {
+		e.Logger.Warnw("failed to bind request body to json",
 			"error code", ErrInvalidRequestBody,
 			"error", err)
 		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
@@ -323,16 +364,23 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	writeJson(w, http.StatusCreated, CreateProjectResponseBody{newProjectNo})
 }
 
-type CreateProjectRequestBody struct {
+type UpdateProjectInfoRequestBody struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
-type CreateProjectResponseBody struct {
-	ProjectNo int `json:"projectNo"`
+func (u UpdateProjectInfoRequestBody) validate() error {
+	if err := checkProjectNameLength(u.Name); err != nil {
+		return err
+	}
+
+	if err := checkProjectDescriptionLength(u.Description); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// TODO: check name, description length limit
 // UpdateProjectInfoHandler update project name, description
 func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
@@ -346,8 +394,8 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqBody := UpdateProjectInfoRequestBody{}
-	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		e.Logger.Warnw("failed to json decode request body",
+	if err := bindJson(r.Body, &reqBody); err != nil {
+		e.Logger.Warnw("failed to bind request body to json",
 			"error code", ErrInvalidRequestBody,
 			"error", err)
 		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
@@ -360,26 +408,6 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 			"error code", ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
 		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
-	}
-
-	// check project name duplicate
-	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name)); err != sql.ErrNoRows {
-		if err != nil {
-			e.Logger.Errorw("failed to select project with name",
-				"error code", ErrInternalServerError,
-				"error", err,
-				"userId", userId,
-				"projectName", reqBody.Name)
-			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-			return
-		}
-
-		e.Logger.Debugw("failed to insert new project (duplicated)",
-			"error code", ErrDuplicate,
-			"error", err,
-			"projectName", reqBody.Name)
-		writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
 		return
 	}
 
@@ -405,6 +433,26 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check project name duplicate
+	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name), model.WithExcludeProjectId(project.Id)); err != sql.ErrNoRows {
+		if err != nil {
+			e.Logger.Errorw("failed to select project with name",
+				"error code", ErrInternalServerError,
+				"error", err,
+				"userId", userId,
+				"projectName", reqBody.Name)
+			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			return
+		}
+
+		e.Logger.Debugw("failed to insert new project (duplicated)",
+			"error code", ErrDuplicate,
+			"error", err,
+			"projectName", reqBody.Name)
+		writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+		return
+	}
+
 	// update project
 	project.Name = reqBody.Name
 	project.Description = reqBody.Description
@@ -420,12 +468,6 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type UpdateProjectInfoRequestBody struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
-// TODO: check name, description length limit
 // UpdateProjectContentHandler update project content
 func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
@@ -502,7 +544,6 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// TODO: check name, description length limit
 // UpdateProjectConfigHandler update project config
 func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
