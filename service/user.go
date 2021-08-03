@@ -132,13 +132,16 @@ next:
 }
 
 type GetUserHandlerResponseBody struct {
-	Name         string    `json:"name"`
-	ProfileImage string    `json:"profileImage"`
-	Description  string    `json:"description"`
-	Email        string    `json:"email"`
-	WebSite      string    `json:"webSite"`
-	CreateTime   time.Time `json:"createTime"`
-	UpdateTime   time.Time `json:"updateTime"`
+	Name         string `json:"name"`
+	ProfileImage struct {
+		Id  int64  `json:"id"`
+		Url string `json:"url"`
+	} `json:"profileImage"`
+	Description string    `json:"description"`
+	Email       string    `json:"email"`
+	WebSite     string    `json:"webSite"`
+	CreateTime  time.Time `json:"createTime"`
+	UpdateTime  time.Time `json:"updateTime"`
 }
 
 // TODO: Email verification, WebSite url syntax validation
@@ -162,7 +165,8 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profileImage := defaultUserProfileImage
+	profileImageId := int64(0)
+	profileImageUrl := defaultUserProfileImage
 	if user.ProfileImage.Valid {
 		image, err := model.SelectImage(e.DB, userId, user.ProfileImage.Int64)
 		if err != nil {
@@ -173,17 +177,21 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		profileImage = image.Url
+		profileImageId = image.Id
+		profileImageUrl = image.Url
 	}
 
 	resp := GetUserHandlerResponseBody{
-		Name:         user.Name,
-		ProfileImage: profileImage,
-		Description:  user.Description.String,
-		Email:        user.Email.String,
-		WebSite:      user.WebSite.String,
-		CreateTime:   user.CreateTime,
-		UpdateTime:   user.UpdateTime,
+		Name: user.Name,
+		ProfileImage: struct {
+			Id  int64  `json:"id"`
+			Url string `json:"url"`
+		}{Id: profileImageId, Url: profileImageUrl},
+		Description: user.Description.String,
+		Email:       user.Email.String,
+		WebSite:     user.WebSite.String,
+		CreateTime:  user.CreateTime,
+		UpdateTime:  user.UpdateTime,
 	}
 	writeJson(w, http.StatusOK, resp)
 }
