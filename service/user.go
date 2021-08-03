@@ -2,8 +2,8 @@ package service
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"nns_back/model"
@@ -18,6 +18,20 @@ type SignUpHandlerRequestBody struct {
 	PW string `json:"pw"`
 }
 
+func (s SignUpHandlerRequestBody) validate() error {
+	// check ID validation
+	if err := validateID(s.ID); err != nil {
+		return errors.Wrap(err, "invalid ID")
+	}
+
+	// check PW validation
+	if err := validatePassword(s.PW); err != nil {
+		return errors.Wrap(err, "invalid password")
+	}
+
+	return nil
+}
+
 const (
 	_idMinLen = 2
 	_idMaxLen = 50
@@ -27,6 +41,42 @@ const (
 	_idRegexp = `[a-zA-Z0-9]{2,50}`
 )
 
+func validateID(id string) error {
+	match, err := regexp.MatchString(_idRegexp, id)
+	if err != nil {
+		return err
+	}
+	if !match {
+		return errors.New("ID regexp doesn't match")
+	}
+	return nil
+}
+
+func validatePassword(password string) error {
+	length := utf8.RuneCountInString(password)
+	if length < _pwMinLen {
+		return fmt.Errorf("password must be at least %d characters", _pwMinLen)
+	}
+	if length > _pwMaxLen {
+		return fmt.Errorf("password must be %d characters or less", _pwMaxLen)
+	}
+
+next:
+	for name, classes := range map[string][]*unicode.RangeTable{
+		"alphabet": {unicode.Upper, unicode.Lower, unicode.Title},
+		"numeric":  {unicode.Number, unicode.Digit},
+		"special":  {unicode.Space, unicode.Symbol, unicode.Punct, unicode.Mark},
+	} {
+		for _, character := range password {
+			if unicode.IsOneOf(classes, character) {
+				continue next
+			}
+		}
+		return fmt.Errorf("password must have at least one %s character", name)
+	}
+	return nil
+}
+
 // TODO: move to environment variable
 const defaultUserProfileImage = "https://s3.ap-northeast-2.amazonaws.com/image.nns/default_profile.png"
 
@@ -34,33 +84,11 @@ const defaultUserProfileImage = "https://s3.ap-northeast-2.amazonaws.com/image.n
 func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	// bind request body
 	reqBody := SignUpHandlerRequestBody{}
-	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		e.Logger.Warnw("failed to json decode request body",
+	if err := bindJson(r.Body, &reqBody); err != nil {
+		e.Logger.Warnw("failed to bind request body to json",
 			"error code", ErrInvalidRequestBody,
 			"error", err)
 		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
-		return
-	}
-
-	// check ID validation
-	match, err := regexp.MatchString(_idRegexp, reqBody.ID)
-	if err != nil {
-		e.Logger.Errorw("failed to regexp compile",
-			"error code", ErrInternalServerError,
-			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
-		return
-	}
-	if !match {
-		e.Logger.Debug(reqBody.ID)
-		writeError(w, http.StatusBadRequest, ErrInvalidFormat, col(target, "ID"))
-		return
-	}
-
-	// check PW validation
-	if err := validatePassword(reqBody.PW); err != nil {
-		e.Logger.Debug(reqBody.PW)
-		writeError(w, http.StatusBadRequest, ErrInvalidFormat, col(target, "password"))
 		return
 	}
 
@@ -106,30 +134,6 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func validatePassword(password string) error {
-	length := utf8.RuneCountInString(password)
-	if length < _pwMinLen {
-		return fmt.Errorf("password must be at least %d characters", _pwMinLen)
-	}
-	if length > _pwMaxLen {
-		return fmt.Errorf("password must be %d characters or less", _pwMaxLen)
-	}
-
-next:
-	for name, classes := range map[string][]*unicode.RangeTable{
-		"alphabet": {unicode.Upper, unicode.Lower, unicode.Title},
-		"numeric":  {unicode.Number, unicode.Digit},
-		"special":  {unicode.Space, unicode.Symbol, unicode.Punct, unicode.Mark},
-	} {
-		for _, character := range password {
-			if unicode.IsOneOf(classes, character) {
-				continue next
-			}
-		}
-		return fmt.Errorf("password must have at least one %s character", name)
-	}
-	return nil
-}
 
 type GetUserHandlerResponseBody struct {
 	Name         string `json:"name"`
@@ -204,6 +208,37 @@ type UpdateUserHandlerRequestBody struct {
 	WebSite      string `json:"webSite"`
 }
 
+func (b UpdateUserHandlerRequestBody) validate() error {
+	if err := checkUserNameLength(b.Name); err != nil {
+		return err
+	}
+
+	if err := checkUserDescriptionLength(b.Description); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+const (
+	_maximumUserNameLength = 45
+	_maximumUserDescriptionLength = 2000
+)
+
+func checkUserNameLength(userName string) error {
+	if utf8.RuneCountInString(userName) > _maximumUserNameLength {
+		return errors.New("user name too long")
+	}
+	return nil
+}
+
+func checkUserDescriptionLength(userDescription string) error {
+	if utf8.RuneCountInString(userDescription) > _maximumUserDescriptionLength {
+		return errors.New("user description too long")
+	}
+	return nil
+}
+
 func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -215,8 +250,8 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqBody := UpdateUserHandlerRequestBody{}
-	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		e.Logger.Warnw("failed to json decode request body",
+	if err := bindJson(r.Body, &reqBody); err != nil {
+		e.Logger.Warnw("failed to bind request body to json",
 			"error code", ErrInvalidRequestBody,
 			"error", err)
 		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
@@ -284,6 +319,14 @@ type UpdateUserPasswordHandlerRequestBody struct {
 	PW string `json:"pw"`
 }
 
+func (b UpdateUserPasswordHandlerRequestBody) validate() error {
+	if err := validatePassword(b.PW); err != nil {
+		return errors.Wrap(err, "invalid password")
+	}
+
+	return nil
+}
+
 func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -295,18 +338,11 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqBody := UpdateUserPasswordHandlerRequestBody{}
-	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		e.Logger.Warnw("failed to json decode request body",
+	if err := bindJson(r.Body, &reqBody); err != nil {
+		e.Logger.Warnw("failed to bind request body to json",
 			"error code", ErrInvalidRequestBody,
 			"error", err)
 		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
-		return
-	}
-
-	// check PW validation
-	if err := validatePassword(reqBody.PW); err != nil {
-		e.Logger.Debug(reqBody.PW)
-		writeError(w, http.StatusBadRequest, ErrInvalidFormat, col(target, "password"))
 		return
 	}
 
