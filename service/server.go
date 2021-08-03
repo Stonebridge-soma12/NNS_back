@@ -54,19 +54,19 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/api/user", auth.DeleteUserHandler).Methods(_Delete...)
 
 	// project
-	router.HandleFunc("/api/projects", e.GetProjectListHandler).Methods(_Get...)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.GetProjectHandler).Methods(_Get...)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.GetProjectContentHandler).Methods(_Get...)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.GetProjectConfigHandler).Methods(_Get...)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/code", e.GetPythonCodeHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/projects", e.GetProjectListHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.GetProjectHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.GetProjectContentHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.GetProjectConfigHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/code", e.GetPythonCodeHandler).Methods(_Get...)
 
-	router.HandleFunc("/api/project", e.CreateProjectHandler).Methods(_Post...)
+	authRouter.HandleFunc("/api/project", e.CreateProjectHandler).Methods(_Post...)
 
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/info", e.UpdateProjectInfoHandler).Methods(_Put...)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectContentHandler).Methods(_Put...)
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectConfigHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/info", e.UpdateProjectInfoHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectContentHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectConfigHandler).Methods(_Put...)
 
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
 
 	router.Use(handlers.CORS(
 		handlers.AllowedMethods([]string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),

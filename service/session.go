@@ -126,8 +126,6 @@ func (a Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-const _tempUserID int64 = 1
-
 func (a Auth) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := a.SessionStore.Get(r, _sessionCookieName)
