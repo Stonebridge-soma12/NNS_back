@@ -73,7 +73,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Type", "Content-Language", "Origin"}),
 		handlers.AllowCredentials(),
 
-		// This option is used to to bypass a well known security issue
+		// This option is used to bypass a well known security issue
 		// when configured with AllowedOrigins to * and AllowCredentials to true.
 		//
 		// Must change to the option below in production.
