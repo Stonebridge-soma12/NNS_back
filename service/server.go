@@ -96,5 +96,5 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Addr:    port,
 	}
 	e.Logger.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
-	e.Logger.Fatal(srv.ListenAndServe())
+	//e.Logger.Fatal(srv.ListenAndServe())
 }
