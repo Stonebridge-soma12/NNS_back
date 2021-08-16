@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"net/http"
+	"nns_back/ws"
 	"os"
 )
 
@@ -68,6 +69,13 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
 
+	// web socket
+	hub := ws.NewHub()
+	go hub.Run()
+
+	router.HandleFunc("/ws", hub.WsHandler)
+
+
 	router.Use(handlers.CORS(
 		handlers.AllowedMethods([]string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
 		handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Type", "Content-Language", "Origin"}),
@@ -88,4 +96,5 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Addr:    port,
 	}
 	e.Logger.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
+	e.Logger.Fatal(srv.ListenAndServe())
 }
