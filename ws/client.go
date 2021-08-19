@@ -41,9 +41,9 @@ var upgrader = websocket.Upgrader{
 	//EnableCompression: false,
 }
 
-// Client is a middleman between the websocket connection and the hub.
+// Client is a middleman between the websocket connection and the room.
 type Client struct {
-	hub *Hub
+	room *Room
 
 	// The websocket connection.
 	conn *websocket.Conn
@@ -52,14 +52,14 @@ type Client struct {
 	send chan []byte
 }
 
-// readPump pumps messages from the websocket connection to the hub.
+// readPump pumps messages from the websocket connection to the room.
 //
 // The application runs readPump in a per-connection goroutine. The application
 // ensures that there is at most one reader on a connection by executing all
 // reads from this goroutine.
 func (c *Client) readPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.room.unregister <- c
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -74,11 +74,11 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <- message
+		c.room.broadcast <- message
 	}
 }
 
-// writePump pumps messages from the hub to the websocket connection.
+// writePump pumps messages from the room to the websocket connection.
 //
 // A goroutine running writePump is started for each connection. The
 // application ensures that there is at most one writer to a connection by
@@ -94,7 +94,7 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
+				// The room closed the channel.
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -125,14 +125,14 @@ func (c *Client) writePump() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func serveWs(room *Room, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
-	client.hub.register <- client
+	client := &Client{room: room, conn: conn, send: make(chan []byte, 256)}
+	client.room.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
@@ -140,6 +140,6 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	go client.readPump()
 }
 
-func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Room) WsHandler(w http.ResponseWriter, r *http.Request) {
 	serveWs(h, w, r)
 }

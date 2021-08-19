@@ -70,10 +70,11 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
 
 	// web socket
-	hub := ws.NewHub()
+	hub := ws.NewRoom()
 	go hub.Run()
 
-	router.HandleFunc("/ws", hub.WsHandler)
+	//router.HandleFunc("/ws", hub.WsHandler)
+	authRouter.HandleFunc("/ws", hub.WsHandler)
 
 
 	router.Use(handlers.CORS(
@@ -95,6 +96,6 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Handler: handlers.CombinedLoggingHandler(os.Stderr, router),
 		Addr:    port,
 	}
-	e.Logger.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
-	//e.Logger.Fatal(srv.ListenAndServe())
+	//e.Logger.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
+	e.Logger.Fatal(srv.ListenAndServe())
 }
