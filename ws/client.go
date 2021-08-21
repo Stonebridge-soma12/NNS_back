@@ -2,6 +2,7 @@ package ws
 
 import (
 	"bytes"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -141,5 +142,6 @@ func serveWs(room *Room, w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Room) WsHandler(w http.ResponseWriter, r *http.Request) {
+	key := mux.Vars(r)["key"]
 	serveWs(h, w, r)
 }

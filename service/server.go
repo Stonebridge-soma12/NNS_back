@@ -74,7 +74,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	go hub.Run()
 
 	//router.HandleFunc("/ws", hub.WsHandler)
-	authRouter.HandleFunc("/ws", hub.WsHandler)
+	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
 
 
 	router.Use(handlers.CORS(
