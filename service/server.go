@@ -70,8 +70,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
 
 	// web socket
-	hub := ws.NewRoom()
-	go hub.Run()
+	hub := ws.NewHub()
 
 	//router.HandleFunc("/ws", hub.WsHandler)
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)

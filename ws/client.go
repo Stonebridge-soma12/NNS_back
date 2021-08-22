@@ -2,10 +2,8 @@ package ws
 
 import (
 	"bytes"
-	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"log"
-	"net/http"
 	"time"
 )
 
@@ -28,29 +26,22 @@ var (
 	space   = []byte{' '}
 )
 
-
-var upgrader = websocket.Upgrader{
-	//HandshakeTimeout:  0,
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	//WriteBufferPool:   nil,
-	//Subprotocols:      nil,
-	//Error:             nil,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-	//EnableCompression: false,
-}
-
 // Client is a middleman between the websocket connection and the room.
 type Client struct {
-	room *Room
+	id int
+
+	room *room
 
 	// The websocket connection.
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+}
+
+func (c *Client) close() {
+	c.conn.Close()
+	close(c.send)
 }
 
 // readPump pumps messages from the websocket connection to the room.
@@ -75,7 +66,7 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.room.broadcast <- message
+		c.room.broadcast(message, nil)
 	}
 }
 
@@ -123,25 +114,4 @@ func (c *Client) writePump() {
 			}
 		}
 	}
-}
-
-// serveWs handles websocket requests from the peer.
-func serveWs(room *Room, w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	client := &Client{room: room, conn: conn, send: make(chan []byte, 256)}
-	client.room.register <- client
-
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
-	go client.writePump()
-	go client.readPump()
-}
-
-func (h *Room) WsHandler(w http.ResponseWriter, r *http.Request) {
-	key := mux.Vars(r)["key"]
-	serveWs(h, w, r)
 }
