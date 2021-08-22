@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>test</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport"/>
+    <style>
+        body {
+            cursor: none;
+        }
+
+        .cursor_item {
+            width: 25px;
+            height: 25px;
+            background: red;
+            position: absolute;
+            left: 0;
+            top: 0;
+            margin-top: -25px;
+            margin-left: -25px;
+        }
+
+    </style>
+    <script>
+        window.onload = function () {
+            let cursor;
+            let x, y;
+
+            var conn;
+            if (window["WebSocket"]) {
+                conn = new WebSocket("ws://localhost:8080/ws/1");
+
+                conn.onclose = function (event) {
+                    document.getElementsByTagName("h1")[0].innerHTML = `Connection closed.`
+                };
+
+                conn.onmessage = function (event) {
+                    var messages = event.data.split('\n');
+                    for (var i = 0; i < messages.length; i++) {
+                        var message = JSON.parse(messages[i]);
+
+                        onMessage(message);
+                    }
+                };
+
+                function onMessage(message) {
+                    x = message.x;
+                    y = message.y;
+                    cursor.style.transform = `translate(${x}px, ${y}px)`;
+                }
+
+                const mouseFunc = (e) => {
+                    document.getElementsByTagName("h2")[0].innerHTML = `x: ${e.clientX} y: ${e.clientY}`;
+                    conn.send(JSON.stringify({x: e.clientX, y: e.clientY}));
+                }
+
+                cursor = document.getElementsByClassName("cursor_item")[0];
+                document.addEventListener("mousemove", mouseFunc);
+
+            } else {
+                document.getElementsByTagName("h1")[0].innerHTML = `Your browser does not support WebSockets.`;
+            }
+        };
+    </script>
+
+</head>
+<body>
+<h1>Test</h1>
+<h2></h2>
+<div class="cursor_item"></div>
+</body>
+
+</html>
