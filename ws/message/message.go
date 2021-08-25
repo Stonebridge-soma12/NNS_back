@@ -3,26 +3,81 @@ package message
 type MessageType string
 
 const (
-	ConnectResponse           MessageType = "connect_response"
-	LoginRequest              MessageType = "login_request"
-	LoginResponse             MessageType = "login_response"
-	JoinRequest               MessageType = "join_request"
-	JoinResponse              MessageType = "join_response"
-	InitDataRequest           MessageType = "init_data_request"
-	InitDataResponse          MessageType = "init_data_response"
-	ChangeCurrentUserResponse MessageType = "change_current_user_response"
-	MoveCursorRequest         MessageType = "move_cursor_request"
-	MoveCursorResponse        MessageType = "move_cursor_response"
-	ExitCursorResponse        MessageType = "exit_cursor_response"
-	MoveBlockRequest          MessageType = "move_block_request"
-	MoveBlockResponse         MessageType = "move_block_response"
-	ChangeBlockRequest        MessageType = "change_block_request"
-	ChangeBlockResponse       MessageType = "change_block_request"
-	CreateBlockRequest        MessageType = "create_block_request"
-	CreateBlockResponse       MessageType = "create_block_response"
-	ErrorResponse             MessageType = "error_response"
-	LeaveRequest              MessageType = "leave_response"
-	LeaveResponse             MessageType = "leave_response"
-	BeforeDisconnect          MessageType = "before_disconnect"
-	DisconnectResponse        MessageType = "disconnect_response"
+	TypeUserCreate MessageType = "create_user_response"
+	TypeUserList   MessageType = "user_list_response"
+	TypeUserRemove MessageType = "remove_user_request"
+
+	TypeCursorMove MessageType = "move_cursor"
+
+	TypeBlockCreate MessageType = "create_block"
+	TypeBlockRemove MessageType = "remove_block"
+	TypeBlockMove   MessageType = "move_block"
+	TypeBlockChange MessageType = "change_block"
+
+	TypeEdgeCreate MessageType = "create_edge"
+	TypeEdgeRemove MessageType = "remove_edge"
 )
+
+type UserCreate struct {
+	MessageType MessageType `json:"message"`
+	Project     interface{} `json:"project"`
+}
+
+type User struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
+type UserList struct {
+	MessageType MessageType `json:"message"`
+	Users       []User      `json:"users"`
+}
+
+type UserRemove struct {
+	MessageType MessageType `json:"message"`
+	User        User        `json:"user"`
+}
+
+type Position struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+type Cursor struct {
+	User     User     `json:"user"`
+	Position Position `json:"position"`
+}
+
+type CursorMove struct {
+	MessageType MessageType `json:"message"`
+	Cursor      Cursor      `json:"cursor"`
+}
+
+type BlockCreate struct {
+	MessageType MessageType `json:"message"`
+	BlockID     string      `json:"blockId"`
+	Block       interface{} `json:"block"`
+}
+
+type BlockRemove struct {
+	MessageType MessageType `json:"message"`
+	BlockID     string      `json:"blockId"`
+	Position    Position    `json:"position"`
+}
+
+type BlockChange struct {
+	MessageType MessageType `json:"message"`
+	BlockID     string      `json:"blockId"`
+	BlockState  interface{} `json:"blockState"`
+}
+
+type EdgeCreate struct {
+	MessageType MessageType `json:"message"`
+	EdgeID      string      `json:"edgeId"`
+	Edge        interface{} `json:"edge"`
+}
+
+type EdgeRemove struct {
+	MessageType MessageType `json:"message"`
+	EdgeID      string      `json:"edgeId"`
+}
