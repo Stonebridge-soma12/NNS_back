@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"io"
@@ -764,4 +765,62 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
 		return
 	}
+}
+
+func (e Env) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw("failed to convert projectNo to int",
+			"error code", ErrInvalidPathParm,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"])
+		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		return
+	}
+
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		e.Logger.Errorw("failed to conversion interface to int64",
+			"error code", ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			e.Logger.Warnw("result of select project is empty",
+				"error code", ErrNotFound,
+				"error", err,
+				"userId", userId,
+				"projectNo", projectNo)
+			writeError(w, http.StatusNotFound, ErrNotFound)
+			return
+		}
+
+		e.Logger.Errorw("failed to select project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	project.ShareKey = sql.NullString{
+		String: uuid.New().String(),
+		Valid:  true,
+	}
+	if err := project.Update(e.DB); err != nil {
+		e.Logger.Errorw("failed to update project",
+			"error code", ErrInternalServerError,
+			"error", err,
+			"userId", userId,
+			"projectNo", projectNo)
+		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		return
+	}
+
+	writeJson(w, http.StatusOK, responseBody{"key": project.ShareKey.String})
 }

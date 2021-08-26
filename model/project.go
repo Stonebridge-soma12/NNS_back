@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"encoding/json"
 	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
@@ -9,20 +10,22 @@ import (
 )
 
 type Project struct {
-	Id          int64     `db:"id"`
-	UserId      int64     `db:"user_id"`
-	ProjectNo   int       `db:"project_no"`
-	Name        string    `db:"name"`
-	Description string    `db:"description"`
-	Config      NullJson  `db:"config"`
-	Content     NullJson  `db:"content"`
-	Status      Status    `db:"status"`
-	CreateTime  time.Time `db:"create_time"`
-	UpdateTime  time.Time `db:"update_time"`
+	Id          int64          `db:"id"`
+	ShareKey    sql.NullString `db:"share_key"`
+	UserId      int64          `db:"user_id"`
+	ProjectNo   int            `db:"project_no"`
+	Name        string         `db:"name"`
+	Description string         `db:"description"`
+	Config      NullJson       `db:"config"`
+	Content     NullJson       `db:"content"`
+	Status      Status         `db:"status"`
+	CreateTime  time.Time      `db:"create_time"`
+	UpdateTime  time.Time      `db:"update_time"`
 }
 
 func NewProject(userId int64, projectNo int, name, description string) Project {
 	return Project{
+		ShareKey:    sql.NullString{Valid: false},
 		UserId:      userId,
 		ProjectNo:   projectNo,
 		Name:        name,
@@ -89,6 +92,12 @@ func ClassifiedByProjectNo(userId int64, projectNo int) SelectProjectClassifier 
 func ClassifiedByProjectName(userId int64, projectName string) SelectProjectClassifier {
 	return selectProjectClassifierFunc(func(builder *squirrel.SelectBuilder) {
 		*builder = builder.Where(squirrel.Eq{"p.user_id": userId, "p.name": projectName})
+	})
+}
+
+func ClassifiedByShareKey(key string) SelectProjectClassifier {
+	return selectProjectClassifierFunc(func(builder *squirrel.SelectBuilder) {
+		*builder = builder.Where(squirrel.Eq{"p.share_key": key})
 	})
 }
 
@@ -241,6 +250,7 @@ func SelectProjectCount(db *sqlx.DB, classifier SelectProjectClassifier, options
 func SelectProjectList(db *sqlx.DB, classifier SelectProjectClassifier, offset, limit int, options ...SelectProjectOption) ([]Project, error) {
 	builder := squirrel.
 		Select("p.id",
+			"p.share_key",
 			"p.user_id",
 			"p.project_no",
 			"p.name",
@@ -281,6 +291,7 @@ func SelectProjectList(db *sqlx.DB, classifier SelectProjectClassifier, offset, 
 func SelectProject(db *sqlx.DB, classifier SelectProjectClassifier, options ...SelectProjectOption) (Project, error) {
 	builder := squirrel.
 		Select("p.id",
+			"p.share_key",
 			"p.user_id",
 			"p.project_no",
 			"p.name",
@@ -305,7 +316,9 @@ func SelectProject(db *sqlx.DB, classifier SelectProjectClassifier, options ...S
 
 func (p Project) Insert(db *sqlx.DB) (int64, error) {
 	result, err := db.NamedExec(
-		`INSERT INTO project (user_id, 
+		`INSERT INTO project (
+                     share_key,
+                     user_id, 
                      project_no, 
                      name, 
                      description, 
@@ -314,7 +327,8 @@ func (p Project) Insert(db *sqlx.DB) (int64, error) {
                      status,
                      create_time,
                      update_time)
-			VALUES (:user_id,
+			VALUES (:share_key,
+			        :user_id,
 					:project_no,
 					:name,
 					:description,
@@ -336,7 +350,8 @@ func (p Project) Update(db *sqlx.DB) error {
 
 	_, err := db.NamedExec(
 		`UPDATE project
-				SET name        = :name,
+				SET share_key	= :share_key,
+				    name        = :name,
 					description = :description,
 					config      = :config,
 					content     = :content,
