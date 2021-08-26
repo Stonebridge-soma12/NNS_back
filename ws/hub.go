@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -11,14 +12,14 @@ import (
 )
 
 type Hub struct {
-	rooms  map[string]*room
-	DB     *sqlx.DB
+	rooms map[string]*room
+	DB    *sqlx.DB
 }
 
 func NewHub(db *sqlx.DB) *Hub {
 	return &Hub{
-		rooms:  make(map[string]*room),
-		DB:     db,
+		rooms: make(map[string]*room),
+		DB:    db,
 	}
 }
 
@@ -31,7 +32,7 @@ func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := model.SelectUser(h.DB, model.ClassifiedByUserId(userId))
+	user, err := model.SelectUser(h.DB, model.ClassifiedById(userId))
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "failed to select user", http.StatusInternalServerError)
@@ -40,9 +41,15 @@ func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
 
 	project, err := model.SelectProject(h.DB, model.ClassifiedByShareKey(key))
 	if err != nil {
-		log.Println(err)
-		http.Error(w, "failed to select project", http.StatusInternalServerError)
-		return
+		if err != sql.ErrNoRows {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else {
+			log.Println(err)
+			http.Error(w, "failed to select project", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	projectContent := make(map[string]interface{})
@@ -57,7 +64,7 @@ func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
 		go h.rooms[key].run()
 	}
 
-	serveWs(h.rooms[key], user.Name,  w, r)
+	serveWs(h.rooms[key], user.Name, w, r)
 }
 
 var upgrader = websocket.Upgrader{
