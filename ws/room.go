@@ -1,9 +1,18 @@
 package ws
 
+import (
+	"encoding/json"
+	"github.com/tidwall/gjson"
+	"log"
+	"nns_back/ws/message"
+)
+
 // room maintains the set of active clients and broadcasts messages to the
 // clients.
 type room struct {
 	id string
+
+	projectContent map[string]interface{}
 
 	// ID of next registered client
 	nextID int
@@ -18,13 +27,14 @@ type room struct {
 	unregister chan *Client
 }
 
-func newRoom(id string) *room {
+func newRoom(id string, projectContent map[string]interface{}) *room {
 	return &room{
-		id:         id,
-		nextID:     0,
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make([]*Client, 0),
+		id:             id,
+		projectContent: projectContent,
+		nextID:         0,
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		clients:        make([]*Client, 0),
 	}
 }
 
@@ -51,7 +61,31 @@ func (r *room) run() {
 func (r *room) onRegister(client *Client) {
 	r.nextID++
 	client.id = r.nextID
+	client.Color = generateColor()
 	r.clients = append(r.clients, client)
+
+	users := make([]message.User, 0, len(r.clients))
+	for _, c := range r.clients {
+		users = append(users, message.User{
+			ID:    c.id,
+			Name:  c.Name,
+			Color: c.Color,
+		})
+	}
+
+	// notify that a user joined
+	if msg, err := json.Marshal(message.NewUserList(users)); err == nil {
+		r.broadcast(msg, nil)
+	} else {
+		log.Println(err)
+	}
+
+	// notify current project to recent joined user
+	if msg, err := json.Marshal(message.NewUserCreate(message.User{client.id, client.Name, client.Color}, r.projectContent)); err == nil {
+		r.send(msg, client)
+	} else {
+		log.Println(err)
+	}
 }
 
 func (r *room) onUnregister(client *Client) {
@@ -75,6 +109,61 @@ func (r *room) onUnregister(client *Client) {
 	//if len(r.clients) == 0 {
 	//	r.close()
 	//}
+
+	// notify that a user left
+	users := make([]message.User, 0, len(r.clients))
+	for _, c := range r.clients {
+		users = append(users, message.User{
+			ID:    c.id,
+			Name:  c.Name,
+			Color: c.Color,
+		})
+	}
+
+	if msg, err := json.Marshal(message.NewUserList(users)); err == nil {
+		r.broadcast(msg, nil)
+	} else {
+		log.Println(err)
+	}
+}
+
+func (r *room) onMessage(data []byte, reader *Client) {
+	messageType := gjson.GetBytes(data, message.MessageTypeJsonTag).String()
+
+	switch message.MessageType(messageType) {
+	case message.TypeUserCreate:
+		// invalid message type
+		// server to client only
+
+	case message.TypeUserList:
+		// invalid message type
+		// server to client only
+
+	case message.TypeCursorMove:
+		r.broadcast(data, reader)
+
+	case message.TypeBlockCreate:
+		r.broadcast(data, reader)
+
+	case message.TypeBlockRemove:
+		r.broadcast(data, reader)
+
+	case message.TypeBlockMove:
+		r.broadcast(data, reader)
+
+	case message.TypeBlockChange:
+		r.broadcast(data, reader)
+
+	case message.TypeEdgeCreate:
+		r.broadcast(data, reader)
+
+	case message.TypeEdgeRemove:
+		r.broadcast(data, reader)
+
+	default:
+		// invalid message type
+		r.broadcast(data, reader)
+	}
 }
 
 func (r *room) broadcast(message []byte, ignore *Client) {
@@ -85,4 +174,8 @@ func (r *room) broadcast(message []byte, ignore *Client) {
 
 		c.send <- message
 	}
+}
+
+func (r *room) send(message []byte, client *Client) {
+	client.send <- message
 }

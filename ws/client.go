@@ -7,7 +7,9 @@ import (
 
 // Client is a middleman between the websocket connection and the room.
 type Client struct {
-	id int
+	id    int
+	Name  string
+	Color string
 
 	room *room
 
@@ -41,7 +43,7 @@ func (c *Client) readPump() {
 			}
 			break
 		}
-		c.room.broadcast(message, c)
+		c.room.onMessage(message, c)
 	}
 }
 

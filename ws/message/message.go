@@ -5,7 +5,6 @@ type MessageType string
 const (
 	TypeUserCreate MessageType = "create_user_response"
 	TypeUserList   MessageType = "user_list_response"
-	TypeUserRemove MessageType = "remove_user_request"
 
 	TypeCursorMove MessageType = "move_cursor"
 
@@ -18,14 +17,26 @@ const (
 	TypeEdgeRemove MessageType = "remove_edge"
 )
 
+const MessageTypeJsonTag = "message"
+
+type User struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
 type UserCreate struct {
 	MessageType MessageType `json:"message"`
+	User        User        `json:"user"`
 	Project     interface{} `json:"project"`
 }
 
-type User struct {
-	Name  string `json:"name"`
-	Color string `json:"color"`
+func NewUserCreate(user User, project interface{}) UserCreate {
+	return UserCreate{
+		MessageType: TypeUserCreate,
+		User:        user,
+		Project:     project,
+	}
 }
 
 type UserList struct {
@@ -33,9 +44,11 @@ type UserList struct {
 	Users       []User      `json:"users"`
 }
 
-type UserRemove struct {
-	MessageType MessageType `json:"message"`
-	User        User        `json:"user"`
+func NewUserList(users []User) UserList {
+	return UserList{
+		MessageType: TypeUserList,
+		Users:       users,
+	}
 }
 
 type Position struct {
