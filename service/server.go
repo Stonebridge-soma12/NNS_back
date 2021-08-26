@@ -69,11 +69,13 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
 
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", e.GenerateShareKeyHandler).Methods(_Get...)
+
 	// web socket
-	hub := ws.NewHub()
+	hub := ws.NewHub(e.DB)
 
 	//router.HandleFunc("/ws", hub.WsHandler)
-	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
+	authRouter.HandleFunc("/{key}", hub.WsHandler)
 
 
 	router.Use(handlers.CORS(
