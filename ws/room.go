@@ -81,7 +81,8 @@ func (r *room) onRegister(client *Client) {
 	}
 
 	// notify current project to recent joined user
-	if msg, err := json.Marshal(message.NewUserCreate(message.User{client.id, client.Name, client.Color}, r.projectContent)); err == nil {
+	if msg, err := json.Marshal(
+		message.NewUserCreate(message.User{client.id, client.Name, client.Color}, r.projectContent)); err == nil {
 		r.send(msg, client)
 	} else {
 		log.Println(err)
@@ -143,6 +144,15 @@ func (r *room) onMessage(data []byte, reader *Client) {
 		r.broadcast(data, reader)
 
 	case message.TypeBlockCreate:
+		body := message.BlockCreate{}
+		if err := json.Unmarshal(data, &body); err != nil {
+			log.Println()
+		}
+
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
+		elements = append(elements, body)
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
+
 		r.broadcast(data, reader)
 
 	case message.TypeBlockRemove:
