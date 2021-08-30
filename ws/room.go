@@ -219,10 +219,10 @@ func (r *room) onMessage(data []byte, reader *Client) {
 			log.Println(err)
 		}
 
-		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]map[string]interface{})
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
 		var index int // to remove element index from elements
 		for idx, element := range elements {
-			if element["id"] == body.EdgeID {
+			if element.(map[string]interface{})["id"] == body.EdgeID {
 				index = idx
 				break
 			}
