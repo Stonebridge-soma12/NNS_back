@@ -146,16 +146,38 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeBlockCreate:
 		body := message.BlockCreate{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println()
+			log.Println(err)
 		}
 
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
 		elements = append(elements, body.Block)
+
 		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
 
 		r.broadcast(data, reader)
 
 	case message.TypeBlockRemove:
+		body := message.BlockRemove{}
+		if err := json.Unmarshal(data, &body); err != nil {
+			log.Println(err)
+		}
+
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]map[string]interface{})
+		var index int // to remove element index from elements
+		for idx, element := range elements {
+			if element["id"] == body.BlockID {
+				index = idx
+				break
+			}
+		}
+
+		// delete element from elements
+		copy(elements[index:], elements[index+1:])
+		elements[len(elements)-1] = nil
+		elements = elements[:len(elements)-1]
+
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
+
 		r.broadcast(data, reader)
 
 	case message.TypeBlockMove:
