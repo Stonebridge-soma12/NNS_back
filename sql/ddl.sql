@@ -21,6 +21,7 @@ create table project
     status varchar(10) default 'EXIST' not null,
     create_time datetime default current_timestamp() not null,
     update_time datetime default current_timestamp() not null on update current_timestamp(),
+    share_key varchar(100) null,
     constraint project_uk_user_id_project_no
         unique (project_no, user_id),
     constraint config
@@ -28,6 +29,11 @@ create table project
     constraint content
         check (json_valid(`content`))
 );
+
+create index project__index_user_id
+    on project (user_id);
+
+
 
 create index project__index_user_id
     on project (user_id);
