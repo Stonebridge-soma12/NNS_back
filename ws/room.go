@@ -214,6 +214,27 @@ func (r *room) onMessage(data []byte, reader *Client) {
 		r.broadcast(data, reader)
 
 	case message.TypeEdgeRemove:
+		body := message.EdgeRemove{}
+		if err := json.Unmarshal(data, &body); err != nil {
+			log.Println(err)
+		}
+
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]map[string]interface{})
+		var index int // to remove element index from elements
+		for idx, element := range elements {
+			if element["id"] == body.EdgeID {
+				index = idx
+				break
+			}
+		}
+
+		// delete element from elements
+		copy(elements[index:], elements[index+1:])
+		elements[len(elements)-1] = nil
+		elements = elements[:len(elements)-1]
+
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
+
 		r.broadcast(data, reader)
 
 	default:
