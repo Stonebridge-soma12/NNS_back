@@ -201,6 +201,16 @@ func (r *room) onMessage(data []byte, reader *Client) {
 		r.broadcast(data, reader)
 
 	case message.TypeEdgeCreate:
+		body := message.EdgeCreate{}
+		if err := json.Unmarshal(data, &body); err != nil {
+			log.Println(err)
+		}
+
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
+		elements = append(elements, body.Edge)
+
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
+
 		r.broadcast(data, reader)
 
 	case message.TypeEdgeRemove:
