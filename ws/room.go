@@ -150,7 +150,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 		}
 
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
-		elements = append(elements, body)
+		elements = append(elements, body.Block)
 		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
 
 		r.broadcast(data, reader)
