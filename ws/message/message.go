@@ -75,6 +75,11 @@ type BlockCreate struct {
 type BlockRemove struct {
 	MessageType MessageType `json:"message"`
 	BlockID     string      `json:"blockId"`
+}
+
+type BlockMove struct {
+	MessageType MessageType `json:"message"`
+	BlockID     string      `json:"blockId"`
 	Position    Position    `json:"position"`
 }
 

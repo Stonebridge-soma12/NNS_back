@@ -181,6 +181,20 @@ func (r *room) onMessage(data []byte, reader *Client) {
 		r.broadcast(data, reader)
 
 	case message.TypeBlockMove:
+		body := message.BlockMove{}
+		if err := json.Unmarshal(data, &body); err != nil {
+			log.Println(err)
+		}
+
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]map[string]interface{})
+		for _, element := range elements {
+			if element["id"] == body.BlockID {
+				element["position"] = body.Position
+			}
+		}
+
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
+
 		r.broadcast(data, reader)
 
 	case message.TypeBlockChange:
