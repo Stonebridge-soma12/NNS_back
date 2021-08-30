@@ -162,10 +162,10 @@ func (r *room) onMessage(data []byte, reader *Client) {
 			log.Println(err)
 		}
 
-		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]map[string]interface{})
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
 		var index int // to remove element index from elements
 		for idx, element := range elements {
-			if element["id"] == body.BlockID {
+			if element.(map[string]interface{})["id"] == body.BlockID {
 				index = idx
 				break
 			}
@@ -186,10 +186,10 @@ func (r *room) onMessage(data []byte, reader *Client) {
 			log.Println(err)
 		}
 
-		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]map[string]interface{})
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
 		for _, element := range elements {
-			if element["id"] == body.BlockID {
-				element["position"] = body.Position
+			if element.(map[string]interface{})["id"] == body.BlockID {
+				element.(map[string]interface{})["position"] = body.Position
 			}
 		}
 
