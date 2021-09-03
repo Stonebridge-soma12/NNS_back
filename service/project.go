@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"nns_back/model"
+	"nns_back/util"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -31,9 +32,9 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -81,10 +82,10 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 		model.WithFilter(filterType, filterString))
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -95,12 +96,12 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 		model.WithFilter(filterType, filterString))
 	if err != nil {
 		e.Logger.Errorw("failed to select project list",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"offset", pagination.Offset(),
 			"limit", pagination.Limit())
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 	}
 
 	resp := GetProjectListResponseBody{
@@ -116,26 +117,26 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	writeJson(w, http.StatusOK, resp)
+	util.WriteJson(w, http.StatusOK, resp)
 }
 
 func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -143,24 +144,24 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	writeJson(w, http.StatusOK, responseBody{
+	util.WriteJson(w, http.StatusOK, util.ResponseBody{
 		"projectNo":   project.ProjectNo,
 		"name":        project.Name,
 		"description": project.Description,
@@ -174,19 +175,19 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -194,43 +195,43 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	writeJson(w, http.StatusOK, project.Content.Json)
+	util.WriteJson(w, http.StatusOK, project.Content.Json)
 }
 
 func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -238,24 +239,24 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	writeJson(w, http.StatusOK, project.Config.Json)
+	util.WriteJson(w, http.StatusOK, project.Config.Json)
 }
 
 type CreateProjectRequestBody struct {
@@ -302,18 +303,18 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := CreateProjectRequestBody{}
 	if err := bindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
-			"error code", ErrInvalidRequestBody,
+			"error code", util.ErrInvalidRequestBody,
 			"error", err)
-		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -321,19 +322,19 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name)); err != sql.ErrNoRows {
 		if err != nil {
 			e.Logger.Errorw("failed to select project with name",
-				"error code", ErrInternalServerError,
+				"error code", util.ErrInternalServerError,
 				"error", err,
 				"userId", userId,
 				"projectName", reqBody.Name)
-			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 			return
 		}
 
 		e.Logger.Debugw("failed to insert new project (duplicated)",
-			"error code", ErrDuplicate,
+			"error code", util.ErrDuplicate,
 			"error", err,
 			"projectName", reqBody.Name)
-		writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+		util.WriteError(w, http.StatusUnprocessableEntity, util.ErrDuplicate)
 		return
 	}
 
@@ -341,10 +342,10 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	itemCount, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId), model.WithStatus(model.StatusNONE))
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -355,14 +356,14 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	project := model.NewProject(userId, newProjectNo, reqBody.Name, reqBody.Description)
 	if _, err := project.Insert(e.DB); err != nil {
 		e.Logger.Errorw("failed to insert new project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"project", project)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	writeJson(w, http.StatusCreated, CreateProjectResponseBody{newProjectNo})
+	util.WriteJson(w, http.StatusCreated, CreateProjectResponseBody{newProjectNo})
 }
 
 type UpdateProjectInfoRequestBody struct {
@@ -387,28 +388,28 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
 	reqBody := UpdateProjectInfoRequestBody{}
 	if err := bindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
-			"error code", ErrInvalidRequestBody,
+			"error code", util.ErrInvalidRequestBody,
 			"error", err)
-		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -417,20 +418,20 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -438,19 +439,19 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name), model.WithExcludeProjectId(project.Id)); err != sql.ErrNoRows {
 		if err != nil {
 			e.Logger.Errorw("failed to select project with name",
-				"error code", ErrInternalServerError,
+				"error code", util.ErrInternalServerError,
 				"error", err,
 				"userId", userId,
 				"projectName", reqBody.Name)
-			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 			return
 		}
 
 		e.Logger.Debugw("failed to insert new project (duplicated)",
-			"error code", ErrDuplicate,
+			"error code", util.ErrDuplicate,
 			"error", err,
 			"projectName", reqBody.Name)
-		writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+		util.WriteError(w, http.StatusUnprocessableEntity, util.ErrDuplicate)
 		return
 	}
 
@@ -459,10 +460,10 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	project.Description = reqBody.Description
 	if err := project.Update(e.DB); err != nil {
 		e.Logger.Errorw("failed to update project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"project", project)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -474,10 +475,10 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
@@ -485,27 +486,27 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	reqBodyUnmarshaled := make(map[string]interface{})
 	if err := json.NewDecoder(r.Body).Decode(&reqBodyUnmarshaled); err != nil {
 		e.Logger.Warnw("failed to json decode request body",
-			"error code", ErrInvalidRequestBody,
+			"error code", util.ErrInvalidRequestBody,
 			"error", err)
-		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
 		return
 	}
 
 	reqBodyBytes, err := json.Marshal(reqBodyUnmarshaled)
 	if err != nil {
 		e.Logger.Errorw("failed to json marshal reqBodyUnmarshaled",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -514,20 +515,20 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -535,10 +536,10 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	project.Content.Json = reqBodyBytes
 	if err := project.Update(e.DB); err != nil {
 		e.Logger.Errorw("failed to update project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"project", project)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -550,10 +551,10 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
@@ -561,27 +562,27 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	reqBodyUnmarshaled := make(map[string]interface{})
 	if err := json.NewDecoder(r.Body).Decode(&reqBodyUnmarshaled); err != nil {
 		e.Logger.Warnw("failed to json decode request body",
-			"error code", ErrInvalidRequestBody,
+			"error code", util.ErrInvalidRequestBody,
 			"error", err)
-		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
 		return
 	}
 
 	reqBodyBytes, err := json.Marshal(reqBodyUnmarshaled)
 	if err != nil {
 		e.Logger.Errorw("failed to json marshal reqBodyUnmarshaled",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -590,20 +591,20 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -611,10 +612,10 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	project.Config.Json = reqBodyBytes
 	if err := project.Update(e.DB); err != nil {
 		e.Logger.Errorw("failed to update project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"project", project)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -625,19 +626,19 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -646,29 +647,29 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	if err := project.Delete(e.DB); err != nil {
 		e.Logger.Errorw("failed to delete project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"project", project)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -679,19 +680,19 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -699,20 +700,20 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -720,10 +721,10 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
 		e.Logger.Errorw("failed to interface conversion",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"msg", "defaultRoundTripper not an *http.Transport",
 		)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 	defaultTransport := *defaultTransportPointer // dereference it to get a copy of the struct that the pointer points to
@@ -738,9 +739,9 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	jsonedPayload, err := json.Marshal(payload)
 	if err != nil {
 		e.Logger.Errorw("failed to json marshal",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -748,9 +749,9 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Post("http://54.180.153.56:8080/make-python", "application/json", bytes.NewBuffer(jsonedPayload))
 	if err != nil {
 		e.Logger.Errorw("failed to generate python code",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
@@ -760,9 +761,9 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/x-python; charset=utf-8")
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		e.Logger.Errorw("failed to copy file",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 }
@@ -771,19 +772,19 @@ func (e Env) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		e.Logger.Warnw("failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"])
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -791,20 +792,20 @@ func (e Env) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e.Logger.Warnw("result of select project is empty",
-				"error code", ErrNotFound,
+				"error code", util.ErrNotFound,
 				"error", err,
 				"userId", userId,
 				"projectNo", projectNo)
-			writeError(w, http.StatusNotFound, ErrNotFound)
+			util.WriteError(w, http.StatusNotFound, util.ErrNotFound)
 			return
 		}
 
 		e.Logger.Errorw("failed to select project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -814,13 +815,13 @@ func (e Env) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := project.Update(e.DB); err != nil {
 		e.Logger.Errorw("failed to update project",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId,
 			"projectNo", projectNo)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	writeJson(w, http.StatusOK, responseBody{"key": project.ShareKey.String})
+	util.WriteJson(w, http.StatusOK, util.ResponseBody{"key": project.ShareKey.String})
 }

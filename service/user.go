@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"nns_back/model"
+	"nns_back/util"
 	"regexp"
 	"time"
 	"unicode"
@@ -86,9 +87,9 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := SignUpHandlerRequestBody{}
 	if err := bindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
-			"error code", ErrInvalidRequestBody,
+			"error code", util.ErrInvalidRequestBody,
 			"error", err)
-		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
 		return
 	}
 
@@ -97,15 +98,15 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// error occur
 			e.Logger.Errorw("failed to select user",
-				"error code", ErrInternalServerError,
+				"error code", util.ErrInternalServerError,
 				"error", err)
-			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 			return
 		}
 
 		// duplicate user id
 		e.Logger.Debug(reqBody.ID)
-		writeError(w, http.StatusUnprocessableEntity, ErrDuplicate)
+		util.WriteError(w, http.StatusUnprocessableEntity, util.ErrDuplicate)
 		return
 	}
 
@@ -113,9 +114,9 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(reqBody.PW), bcrypt.DefaultCost)
 	if err != nil {
 		e.Logger.Errorw("failed to generate hashed password",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 	e.Logger.Debugw("password hashed finish",
@@ -125,9 +126,9 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	user := model.NewUser(reqBody.ID, hashedPassword)
 	if _, err := user.Insert(e.DB); err != nil {
 		e.Logger.Errorw("failed to insert user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -153,19 +154,19 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
 	if err != nil {
 		e.Logger.Errorw("failed to select user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err,
 			"userId", userId)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -175,9 +176,9 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		image, err := model.SelectImage(e.DB, userId, user.ProfileImage.Int64)
 		if err != nil {
 			e.Logger.Errorw("failed to select image",
-				"error code", ErrInternalServerError,
+				"error code", util.ErrInternalServerError,
 				"error", err)
-			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 			return
 		}
 
@@ -197,7 +198,7 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		CreateTime:  user.CreateTime,
 		UpdateTime:  user.UpdateTime,
 	}
-	writeJson(w, http.StatusOK, resp)
+	util.WriteJson(w, http.StatusOK, resp)
 }
 
 type UpdateUserHandlerRequestBody struct {
@@ -243,27 +244,27 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	reqBody := UpdateUserHandlerRequestBody{}
 	if err := bindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
-			"error code", ErrInvalidRequestBody,
+			"error code", util.ErrInvalidRequestBody,
 			"error", err)
-		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
 		return
 	}
 
 	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
 	if err != nil {
 		e.Logger.Errorw("failed to select user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -287,14 +288,14 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 				e.Logger.Warnw("invalid image id",
 					"request image ID", reqBody.ProfileImage,
 					"request user ID", userId)
-				writeError(w, http.StatusBadRequest, ErrInvalidImageId)
+				util.WriteError(w, http.StatusBadRequest, util.ErrInvalidImageId)
 				return
 			}
 
 			e.Logger.Errorw("failed to select image",
-				"error code", ErrInternalServerError,
+				"error code", util.ErrInternalServerError,
 				"error", err)
-			writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 			return
 		}
 	}
@@ -306,9 +307,9 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := user.Update(e.DB); err != nil {
 		e.Logger.Errorw("failed to update user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -331,18 +332,18 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	reqBody := UpdateUserPasswordHandlerRequestBody{}
 	if err := bindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
-			"error code", ErrInvalidRequestBody,
+			"error code", util.ErrInvalidRequestBody,
 			"error", err)
-		writeError(w, http.StatusBadRequest, ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
 		return
 	}
 
@@ -350,9 +351,9 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(reqBody.PW), bcrypt.DefaultCost)
 	if err != nil {
 		e.Logger.Errorw("failed to generate hashed password",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 	e.Logger.Debugw("password hashed finish",
@@ -362,9 +363,9 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
 	if err != nil {
 		e.Logger.Errorw("failed to select user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -375,9 +376,9 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := user.Update(e.DB); err != nil {
 		e.Logger.Errorw("failed to update user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -388,26 +389,26 @@ func (a Auth) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		a.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	user, err := model.SelectUser(a.DB, model.ClassifiedById(userId))
 	if err != nil {
 		a.Logger.Errorw("failed to select user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	if err := user.Delete(a.DB); err != nil {
 		a.Logger.Errorw("failed to delete user",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 

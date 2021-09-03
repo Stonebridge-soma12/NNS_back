@@ -1,4 +1,4 @@
-package service
+package util
 
 import (
 	"encoding/json"
@@ -6,9 +6,9 @@ import (
 )
 
 // write response helper
-type responseBody map[string]interface{}
+type ResponseBody map[string]interface{}
 
-func writeJson(w http.ResponseWriter, code int, data interface{}) error {
+func WriteJson(w http.ResponseWriter, code int, data interface{}) error {
 	jsoned, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -21,7 +21,7 @@ func writeJson(w http.ResponseWriter, code int, data interface{}) error {
 }
 
 // write error response helper
-type additionalData interface {
+type AdditionalData interface {
 	apply(*map[string]interface{})
 }
 
@@ -31,8 +31,8 @@ func (f additionalDataFunc) apply(m *map[string]interface{}) {
 	f(m)
 }
 
-// col inserts additional data to the error message
-func col(key string, value interface{}) additionalData {
+// KeyValue inserts additional data to the error message
+func KeyValue(key string, value interface{}) AdditionalData {
 	return additionalDataFunc(func(m *map[string]interface{}) {
 		(*m)[key] = value
 	})
@@ -42,7 +42,7 @@ const (
 	target = "target"
 )
 
-func writeError(w http.ResponseWriter, code int, errMsg ErrMsg, additionalColumns ...additionalData) error {
+func WriteError(w http.ResponseWriter, code int, errMsg ErrMsg, additionalColumns ...AdditionalData) error {
 	body := make(map[string]interface{})
 	body["statusCode"] = code
 	body["errMsg"] = errMsg
@@ -51,5 +51,5 @@ func writeError(w http.ResponseWriter, code int, errMsg ErrMsg, additionalColumn
 		c.apply(&body)
 	}
 
-	return writeJson(w, code, body)
+	return WriteJson(w, code, body)
 }

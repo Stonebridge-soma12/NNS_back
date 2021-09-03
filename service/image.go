@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"nns_back/model"
+	"nns_back/util"
 	"os"
 	"strings"
 	"time"
@@ -22,18 +23,18 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 	// maximum upload of 10 MB files
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		e.Logger.Errorw("failed to specifies a maximum file size.",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	file, header, err := r.FormFile(_uploadImageFormFileKey)
 	if err != nil {
 		e.Logger.Errorw("failed to retrieve form file",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 	defer file.Close()
@@ -46,9 +47,9 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 	url, err := UploadImage(file, header.Header.Get("Content-Type"))
 	if err != nil {
 		e.Logger.Errorw("failed to upload image to s3",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -57,23 +58,23 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw("failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	img := model.NewImage(userId, url)
 	if img.Id, err = img.Insert(e.DB); err != nil {
 		e.Logger.Errorw("failed to insert image",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"error", err)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 
-	writeJson(w, http.StatusCreated, responseBody{
+	util.WriteJson(w, http.StatusCreated, util.ResponseBody{
 		"id": img.Id,
 		"url": img.Url,
 	})

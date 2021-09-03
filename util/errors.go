@@ -1,4 +1,4 @@
-package service
+package util
 
 // response error message
 type ErrMsg string

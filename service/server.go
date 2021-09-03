@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"net/http"
+	"nns_back/dataset"
 	"nns_back/ws"
 	"os"
 )
@@ -77,6 +78,8 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	//router.HandleFunc("/ws", hub.WsHandler)
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
 
+	datasetHandler := dataset.NewHandler()
+	router.HandleFunc("/", datasetHandler.UploadFile)
 
 	router.Use(handlers.CORS(
 		handlers.AllowedMethods([]string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
