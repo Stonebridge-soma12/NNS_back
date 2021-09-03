@@ -2,9 +2,13 @@ package cloud
 
 import (
 	"context"
+	"crypto/sha256"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"testing"
 )
@@ -43,4 +47,32 @@ func TestAwsS3Client_Put(t *testing.T) {
 	}
 
 	t.Logf("object url : %s", objectUrl)
+	resp, err := http.Get(objectUrl)
+	if err != nil {
+		t.Errorf("failed to get image from object url: %+v", err)
+	}
+	defer resp.Body.Close()
+
+	// compare
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		t.Errorf("failed to file seek: %+v", err)
+	}
+
+	baseFileBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		t.Errorf("failed to read base file: %+v", err)
+	}
+
+	responseFileBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("failed to read response file: %+v", err)
+	}
+
+	baseChecksum := sha256.Sum256(baseFileBytes)
+	responseChecksum := sha256.Sum256(responseFileBytes)
+	if baseChecksum != responseChecksum {
+		t.Logf("base checksum : %x", baseChecksum)
+		t.Logf("response checksum : %x", responseChecksum)
+		t.Fatal("image not equal")
+	}
 }
