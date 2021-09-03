@@ -1,12 +1,17 @@
 package service
 
 import (
+	"context"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"net/http"
+	"nns_back/cloud"
 	"nns_back/dataset"
 	"nns_back/ws"
 	"os"
@@ -78,8 +83,41 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	//router.HandleFunc("/ws", hub.WsHandler)
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
 
-	datasetHandler := dataset.NewHandler()
-	router.HandleFunc("/", datasetHandler.UploadFile)
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+
+	awsAccessKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+	awsSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	awsSessionToken := os.Getenv("AWS_SESSION_TOKEN")
+	//imageBucketName := os.Getenv("IMAGE_BUCKET_NAME")
+	datasetBucketName := os.Getenv("DATASET_BUCKET_NAME")
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(awsAccessKeyId, awsSecretAccessKey, awsSessionToken)),
+		config.WithRegion("ap-northeast-2"),
+	)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	s3Client := s3.NewFromConfig(cfg)
+
+	datasetHandler := &dataset.Handler{
+		Repository: &dataset.MysqlRepository{
+			DB: db,
+		},
+		Logger:      logger,
+		AwsS3Client: &cloud.AwsS3Client{
+			Client:     s3Client,
+			BucketName: datasetBucketName,
+		},
+	}
+	authRouter.HandleFunc("/api/dataset", datasetHandler.UploadFile).Methods(_Post...)
+
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
 
 	router.Use(handlers.CORS(
 		handlers.AllowedMethods([]string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
