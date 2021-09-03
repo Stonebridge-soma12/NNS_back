@@ -264,7 +264,7 @@ type CreateProjectRequestBody struct {
 	Description string `json:"description"`
 }
 
-func (c CreateProjectRequestBody) validate() error {
+func (c CreateProjectRequestBody) Validate() error {
 	if err := checkProjectNameLength(c.Name); err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ type CreateProjectResponseBody struct {
 
 func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := CreateProjectRequestBody{}
-	if err := bindJson(r.Body, &reqBody); err != nil {
+	if err := util.BindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err)
@@ -371,7 +371,7 @@ type UpdateProjectInfoRequestBody struct {
 	Description string `json:"description"`
 }
 
-func (u UpdateProjectInfoRequestBody) validate() error {
+func (u UpdateProjectInfoRequestBody) Validate() error {
 	if err := checkProjectNameLength(u.Name); err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqBody := UpdateProjectInfoRequestBody{}
-	if err := bindJson(r.Body, &reqBody); err != nil {
+	if err := util.BindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err)

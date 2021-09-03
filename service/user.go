@@ -19,7 +19,7 @@ type SignUpHandlerRequestBody struct {
 	PW string `json:"pw"`
 }
 
-func (s SignUpHandlerRequestBody) validate() error {
+func (s SignUpHandlerRequestBody) Validate() error {
 	// check ID validation
 	if err := validateID(s.ID); err != nil {
 		return errors.Wrap(err, "invalid ID")
@@ -85,7 +85,7 @@ const defaultUserProfileImage = "https://s3.ap-northeast-2.amazonaws.com/image.n
 func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	// bind request body
 	reqBody := SignUpHandlerRequestBody{}
-	if err := bindJson(r.Body, &reqBody); err != nil {
+	if err := util.BindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err)
@@ -209,7 +209,7 @@ type UpdateUserHandlerRequestBody struct {
 	WebSite      string `json:"webSite"`
 }
 
-func (b UpdateUserHandlerRequestBody) validate() error {
+func (b UpdateUserHandlerRequestBody) Validate() error {
 	if err := checkUserNameLength(b.Name); err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqBody := UpdateUserHandlerRequestBody{}
-	if err := bindJson(r.Body, &reqBody); err != nil {
+	if err := util.BindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err)
@@ -320,7 +320,7 @@ type UpdateUserPasswordHandlerRequestBody struct {
 	PW string `json:"pw"`
 }
 
-func (b UpdateUserPasswordHandlerRequestBody) validate() error {
+func (b UpdateUserPasswordHandlerRequestBody) Validate() error {
 	if err := validatePassword(b.PW); err != nil {
 		return errors.Wrap(err, "invalid password")
 	}
@@ -339,7 +339,7 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqBody := UpdateUserPasswordHandlerRequestBody{}
-	if err := bindJson(r.Body, &reqBody); err != nil {
+	if err := util.BindJson(r.Body, &reqBody); err != nil {
 		e.Logger.Warnw("failed to bind request body to json",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err)
