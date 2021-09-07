@@ -2,11 +2,13 @@ package dataset
 
 import (
 	"database/sql"
+	"fmt"
 	"go.uber.org/zap"
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/util"
 	"time"
+	"unicode/utf8"
 )
 
 type Handler struct {
@@ -64,4 +66,57 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	util.WriteJson(w, http.StatusCreated, util.ResponseBody{"id": insertedId})
+}
+
+type UpdateFileConfigRequestBody struct {
+	Id          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (u *UpdateFileConfigRequestBody) Validate() error {
+	if utf8.RuneCountInString(u.Name) > maxDatasetName {
+		return fmt.Errorf("dataset name too long")
+	}
+
+	if utf8.RuneCountInString(u.Description) > maxDatasetDescription {
+		return fmt.Errorf("dataset description too long")
+	}
+
+	return nil
+}
+
+func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
+	body := UpdateFileConfigRequestBody{}
+	if err := util.BindJson(r.Body, &body); err != nil {
+		h.Logger.Errorf("failed to bind request body: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	dataset, err := h.Repository.FindByID(body.Id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			h.Logger.Warnw("dataset not exist",
+				"id", body.Id)
+			util.WriteError(w, http.StatusBadRequest, util.ErrInvlidDatasetId)
+			return
+		}
+
+		h.Logger.Errorf("failed to find dataset: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	dataset.Name = sql.NullString{String: body.Name, Valid: true}
+	dataset.Description = sql.NullString{String: body.Description, Valid: true}
+	dataset.UpdateTime = time.Now()
+
+	if err := h.Repository.Update(body.Id, dataset); err != nil {
+		h.Logger.Errorf("failed to update dataset: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	util.WriteJson(w, http.StatusOK, nil)
 }

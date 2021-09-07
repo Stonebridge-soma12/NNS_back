@@ -114,6 +114,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		},
 	}
 	authRouter.HandleFunc("/api/dataset", datasetHandler.UploadFile).Methods(_Post...)
+	authRouter.HandleFunc("/api/dataset", datasetHandler.UpdateFileConfig).Methods(_Put...)
 
 	///////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////

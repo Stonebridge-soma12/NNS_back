@@ -14,3 +14,8 @@ type Dataset struct {
 	CreateTime  time.Time      `db:"create_time"`
 	UpdateTime  time.Time      `db:"update_time"`
 }
+
+const (
+	maxDatasetName        = 100
+	maxDatasetDescription = 2000
+)

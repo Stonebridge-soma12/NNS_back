@@ -11,6 +11,7 @@ const (
 	ErrInvalidRequestBody ErrMsg = "Invalid Request Body"
 	ErrInvalidFormat      ErrMsg = "Invalid Format"
 	ErrInvalidImageId     ErrMsg = "Invalid Image ID"
+	ErrInvlidDatasetId    ErrMsg = "Invalid Dataset ID"
 
 	// 401
 	ErrLoginRequired         ErrMsg = "Login Required"
