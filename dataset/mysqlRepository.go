@@ -11,7 +11,7 @@ func (m *MysqlRepository) FindByID(id int64) (Dataset, error) {
 }
 
 func (m *MysqlRepository) Insert(dataset Dataset) (int64, error) {
-	result, err := m.DB.Exec(
+	result, err := m.DB.NamedExec(
 		`INSERT INTO dataset (user_id,
                      url,
                      name,
