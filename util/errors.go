@@ -12,6 +12,7 @@ const (
 	ErrInvalidFormat      ErrMsg = "Invalid Format"
 	ErrInvalidImageId     ErrMsg = "Invalid Image ID"
 	ErrInvlidDatasetId    ErrMsg = "Invalid Dataset ID"
+	ErrFileTooLarge       ErrMsg = "File Too Large"
 
 	// 401
 	ErrLoginRequired         ErrMsg = "Login Required"
