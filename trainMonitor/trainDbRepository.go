@@ -8,7 +8,7 @@ const (
 )
 
 type TrainDbRepository struct {
-	db *sqlx.DB
+	DB *sqlx.DB
 }
 
 func insertTrain() Option {
@@ -31,7 +31,7 @@ func (tdb *TrainDbRepository) Insert(train Train) error {
 	options := options{}
 	ApplyOptions(&options, insertTrain())
 
-	_, err := tdb.db.NamedExec(options.queryString, &train)
+	_, err := tdb.DB.NamedExec(options.queryString, &train)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func (tdb *TrainDbRepository) Delete(opts ...Option) error {
 	}
 	ApplyOptions(&options, opts...)
 
-	_, err := tdb.db.Exec(options.queryString, options.args)
+	_, err := tdb.DB.Exec(options.queryString, options.args)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (tdb *TrainDbRepository) Update(train Train, opts ...Option) error {
 	options := options{}
 	ApplyOptions(&options, updateTrain())
 
-	_, err := tdb.db.NamedExec(options.queryString, &train)
+	_, err := tdb.DB.NamedExec(options.queryString, &train)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (tdb *TrainDbRepository) Find(opts ... Option) (Train, error) {
 	ApplyOptions(&options, opts...)
 
 	var train Train
-	err := tdb.db.Get(&train, options.queryString, options.args)
+	err := tdb.DB.Get(&train, options.queryString, options.args)
 	if err != nil {
 		return Train{}, err
 	}
@@ -87,7 +87,7 @@ func (tdb *TrainDbRepository) FindAll(opts ...Option) ([]Train, error) {
 	ApplyOptions(&options, opts...)
 
 	var trains []Train
-	rows, err := tdb.db.Queryx(options.queryString, options.args)
+	rows, err := tdb.DB.Queryx(options.queryString, options.args)
 	if err != nil {
 		return nil, err
 	}

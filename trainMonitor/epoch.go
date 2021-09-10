@@ -11,7 +11,7 @@ const (
 )
 
 type Epoch struct {
-	TrainId      int     `db:"train_id" json:"train_id" header:"train_id"`
+	TrainId      string  `db:"train_id" json:"train_id" header:"train_id"`
 	Acc          float64 `db:"acc" json:"acc"`
 	Epoch        int     `db:"epoch" json:"epoch"`
 	Loss         float64 `db:"loss" json:"loss"`
@@ -42,4 +42,3 @@ type EpochRepository interface {
 	Delete(opts ...Option) error
 	FindAll(opts ...Option) ([]Epoch, error)
 }
-

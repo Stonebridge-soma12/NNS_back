@@ -3,7 +3,7 @@ package trainMonitor
 import "github.com/jmoiron/sqlx"
 
 type EpochDbRepository struct {
-	db *sqlx.DB
+	DB *sqlx.DB
 }
 
 func insertEpoch() Option {
@@ -18,7 +18,7 @@ func (edr *EpochDbRepository) Insert(epoch Epoch) error {
 	options := options{}
 	insertEpoch().apply(&options)
 
-	_, err := edr.db.NamedExec(options.queryString, &epoch)
+	_, err := edr.DB.NamedExec(options.queryString, &epoch)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (edr *EpochDbRepository) Find(opts ...Option) (Epoch, error) {
 	ApplyOptions(&options, opts...)
 
 	var epoch Epoch
-	err := edr.db.Get(&epoch, options.queryString, options.args)
+	err := edr.DB.Get(&epoch, options.queryString, options.args)
 	if err != nil {
 		return epoch, err
 	}
@@ -50,7 +50,7 @@ func (edr *EpochDbRepository) FindAll(opts ...Option) ([]Epoch, error) {
 	ApplyOptions(&options, opts...)
 
 	var epochs []Epoch
-	rows, err := edr.db.Queryx(options.queryString, options.args)
+	rows, err := edr.DB.Queryx(options.queryString, options.args)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (edr *EpochDbRepository) Delete(opts ...Option) error {
 
 	ApplyOptions(&options, opts...)
 
-	_, err := edr.db.Exec(options.queryString, options.args)
+	_, err := edr.DB.Exec(options.queryString, options.args)
 	if err != nil {
 		return err
 	}

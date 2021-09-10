@@ -8,7 +8,7 @@ const (
 )
 
 type TrainLogDbRepository struct {
-	db *sqlx.DB
+	DB *sqlx.DB
 }
 
 func insertLog() Option {
@@ -22,7 +22,7 @@ func (ldr *TrainLogDbRepository) Insert(trainLog TrainLog) error {
 	options := options{}
 	insertLog().apply(&options)
 
-	_, err := ldr.db.NamedExec(options.queryString, &trainLog)
+	_, err := ldr.DB.NamedExec(options.queryString, &trainLog)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (ldr *TrainLogDbRepository) Delete(opts ...Option) error {
 	}
 	ApplyOptions(&options, opts...)
 
-	_, err := ldr.db.Exec(options.queryString, options.args)
+	_, err := ldr.DB.Exec(options.queryString, options.args)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (ldr *TrainLogDbRepository) Find(opts ...Option) (TrainLog, error) {
 	ApplyOptions(&options, opts...)
 
 	var trainLog TrainLog
-	err := ldr.db.Get(&trainLog, options.queryString, options.args)
+	err := ldr.DB.Get(&trainLog, options.queryString, options.args)
 	if err != nil {
 		return TrainLog{}, err
 	}
@@ -65,7 +65,7 @@ func (ldr *TrainLogDbRepository) FindAll(opts ... Option) ([]TrainLog, error) {
 	}
 	ApplyOptions(&options, opts...)
 
-	rows, err := ldr.db.Queryx(options.queryString, options.args)
+	rows, err := ldr.DB.Queryx(options.queryString, options.args)
 	if err != nil {
 		return nil, err
 	}
