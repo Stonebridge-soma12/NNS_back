@@ -17,10 +17,10 @@ const (
 )
 
 type Pagination struct {
-	CurPage   int `json:"curPage"`
-	PageSize  int `json:"pageSize"`
-	LastPage  int `json:"lastPage"`
-	ItemCount int `json:"itemCount"`
+	CurPage   int   `json:"curPage"`
+	PageSize  int   `json:"pageSize"`
+	LastPage  int   `json:"lastPage"`
+	ItemCount int64 `json:"itemCount"`
 }
 
 func (p Pagination) Offset() int {
@@ -31,7 +31,7 @@ func (p Pagination) Limit() int {
 	return p.PageSize
 }
 
-func NewPaginationFromRequest(r *http.Request, itemCount int) Pagination {
+func NewPaginationFromRequest(r *http.Request, itemCount int64) Pagination {
 	cp, ps := parseQueryParam(r)
 	return NewPagination(cp, ps, itemCount)
 }
@@ -48,7 +48,7 @@ func parseQueryParam(r *http.Request) (curPage, pageSize int) {
 	return
 }
 
-func NewPagination(curPage, pageSize, itemCount int) Pagination {
+func NewPagination(curPage, pageSize int, itemCount int64) Pagination {
 	pg := Pagination{
 		CurPage:   curPage,
 		PageSize:  pageSize,
@@ -68,10 +68,10 @@ func NewPagination(curPage, pageSize, itemCount int) Pagination {
 	if itemCount == 0 {
 		pg.LastPage = 1
 	} else {
-		if itemCount%pageSize == 0 {
-			pg.LastPage = itemCount / pageSize
+		if itemCount%int64(pageSize) == 0 {
+			pg.LastPage = int(itemCount / int64(pageSize))
 		} else {
-			pg.LastPage = itemCount/pageSize + 1
+			pg.LastPage = int(itemCount/int64(pageSize)) + 1
 		}
 	}
 

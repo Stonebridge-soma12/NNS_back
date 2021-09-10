@@ -89,7 +89,7 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pagination := util.NewPaginationFromRequest(r, count)
+	pagination := util.NewPaginationFromRequest(r, int64(count))
 
 	projectList, err := model.SelectProjectList(e.DB, model.ClassifiedByUserId(userId), pagination.Offset(), pagination.Limit(),
 		model.OrderBy(sortOrder),
