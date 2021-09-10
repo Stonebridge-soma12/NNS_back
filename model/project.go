@@ -6,6 +6,7 @@ import (
 	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"nns_back/util"
 	"time"
 )
 
@@ -15,11 +16,11 @@ type Project struct {
 	UserId      int64          `db:"user_id"`
 	ProjectNo   int            `db:"project_no"`
 	Name        string         `db:"name"`
-	Description string         `db:"description"`
-	Config      NullJson       `db:"config"`
-	Content     NullJson       `db:"content"`
-	Status      Status         `db:"status"`
-	CreateTime  time.Time      `db:"create_time"`
+	Description string        `db:"description"`
+	Config      util.NullJson `db:"config"`
+	Content     util.NullJson `db:"content"`
+	Status      util.Status   `db:"status"`
+	CreateTime  time.Time     `db:"create_time"`
 	UpdateTime  time.Time      `db:"update_time"`
 }
 
@@ -32,13 +33,13 @@ func NewProject(userId int64, projectNo int, name, description string) Project {
 		Description: description,
 		Config:      DefaultConfig(),
 		Content:     DefaultContent(),
-		Status:      StatusEXIST,
+		Status:      util.StatusEXIST,
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 	}
 }
 
-func DefaultConfig() NullJson {
+func DefaultConfig() util.NullJson {
 	defaultValue := map[string]interface{}{
 		"optimizer":     "adam",
 		"learning_rate": 0.001,
@@ -48,19 +49,19 @@ func DefaultConfig() NullJson {
 		"epochs":        10,
 	}
 	defaultBytes, _ := json.Marshal(defaultValue)
-	return NullJson{
+	return util.NullJson{
 		Json:  json.RawMessage(defaultBytes),
 		Valid: true,
 	}
 }
 
-func DefaultContent() NullJson {
+func DefaultContent() util.NullJson {
 	defaultValue := map[string]interface{}{
 		"output": "",
 		"layers": []interface{}{},
 	}
 	defaultBytes, _ := json.Marshal(defaultValue)
-	return NullJson{
+	return util.NullJson{
 		Json:  json.RawMessage(defaultBytes),
 		Valid: true,
 	}
@@ -131,7 +132,7 @@ type SelectProjectOption interface {
 
 type selectProjectOption struct {
 	excludeProjectId int64
-	status           Status
+	status           util.Status
 	sortOrder        ProjectSortOrder
 	filterType       ProjectFilterType
 	filterString     string
@@ -140,7 +141,7 @@ type selectProjectOption struct {
 func newSelectProjectOption() selectProjectOption {
 	return selectProjectOption{
 		excludeProjectId: int64(0),
-		status:           StatusEXIST,
+		status:           util.StatusEXIST,
 		sortOrder:        OrderByCreateTimeAsc,
 		filterType:       FilterByNone,
 		filterString:     "",
@@ -157,7 +158,7 @@ func (o selectProjectOption) apply(builder *squirrel.SelectBuilder) {
 
 	// status
 	switch o.status {
-	case StatusNONE:
+	case util.StatusNONE:
 	default:
 		*builder = builder.Where(squirrel.Eq{"p.status": o.status})
 	}
@@ -204,7 +205,7 @@ func WithExcludeProjectId(projectId int64) SelectProjectOption {
 	})
 }
 
-func WithStatus(status Status) SelectProjectOption {
+func WithStatus(status util.Status) SelectProjectOption {
 	return selectProjectOptionFunc(func(option *selectProjectOption) {
 		option.status = status
 	})
@@ -363,6 +364,6 @@ func (p Project) Update(db *sqlx.DB) error {
 }
 
 func (p Project) Delete(db *sqlx.DB) error {
-	p.Status = StatusDELETED
+	p.Status = util.StatusDELETED
 	return p.Update(db)
 }

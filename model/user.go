@@ -5,6 +5,7 @@ import (
 	"github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"nns_back/util"
 	"time"
 )
 
@@ -15,10 +16,10 @@ type User struct {
 	Description  sql.NullString `db:"description"`
 	Email        sql.NullString `db:"email"` // TODO: e-mail verification
 	WebSite      sql.NullString `db:"web_site"`
-	LoginId      sql.NullString `db:"login_id"`
-	LoginPw      NullBytes      `db:"login_pw"`
-	Status       Status         `db:"status"`
-	CreateTime   time.Time      `db:"create_time"`
+	LoginId    sql.NullString `db:"login_id"`
+	LoginPw    util.NullBytes `db:"login_pw"`
+	Status     util.Status    `db:"status"`
+	CreateTime time.Time      `db:"create_time"`
 	UpdateTime   time.Time      `db:"update_time"`
 }
 
@@ -33,11 +34,11 @@ func NewUser(id string, pw []byte) User {
 			String: id,
 			Valid:  true,
 		},
-		LoginPw: NullBytes{
+		LoginPw: util.NullBytes{
 			Bytes: pw,
 			Valid: true,
 		},
-		Status:     StatusEXIST,
+		Status:     util.StatusEXIST,
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
@@ -79,7 +80,7 @@ func SelectUser(db *sqlx.DB, classifier SelectUserClassifier) (User, error) {
 		"u.create_time",
 		"u.update_time").
 		From("user u").
-		Where(squirrel.Eq{"u.status": StatusEXIST})
+		Where(squirrel.Eq{"u.status": util.StatusEXIST})
 	classifier.classify(&builder)
 	query, args, err := builder.ToSql()
 	if err != nil {
@@ -144,6 +145,6 @@ func (u User) Update(db *sqlx.DB) error {
 }
 
 func (u User) Delete(db *sqlx.DB) error {
-	u.Status = StatusDELETED
+	u.Status = util.StatusDELETED
 	return u.Update(db)
 }

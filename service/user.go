@@ -369,7 +369,7 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.LoginPw = model.NullBytes{
+	user.LoginPw = util.NullBytes{
 		Bytes: hashedPassword,
 		Valid: true,
 	}

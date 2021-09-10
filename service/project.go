@@ -339,7 +339,7 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get exist project count
-	itemCount, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId), model.WithStatus(model.StatusNONE))
+	itemCount, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId), model.WithStatus(util.StatusNONE))
 	if err != nil {
 		e.Logger.Errorw("failed to select project count",
 			"error code", util.ErrInternalServerError,
