@@ -18,7 +18,7 @@ import (
 
 type GetProjectListResponseBody struct {
 	Projects   []GetProjectListResponseProjectBody `json:"projects"`
-	Pagination Pagination                          `json:"pagination"`
+	Pagination util.Pagination                     `json:"pagination"`
 }
 
 type GetProjectListResponseProjectBody struct {
@@ -89,7 +89,7 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pagination := NewPaginationFromRequest(r, count)
+	pagination := util.NewPaginationFromRequest(r, count)
 
 	projectList, err := model.SelectProjectList(e.DB, model.ClassifiedByUserId(userId), pagination.Offset(), pagination.Limit(),
 		model.OrderBy(sortOrder),
