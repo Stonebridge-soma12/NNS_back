@@ -46,7 +46,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		h.Logger.Errorf("failed to get userId: %v", err)
+		h.Logger.Errorf("failed to get userId")
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
@@ -121,4 +121,67 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	util.WriteJson(w, http.StatusOK, nil)
+}
+
+type GetListResponseBody struct {
+	DatasetNo   int64     `json:"datasetNo"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Public      bool      `json:"public"`
+	CreateTime  time.Time `json:"createTime"`
+	UpdateTime  time.Time `json:"updateTime"`
+}
+
+func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		h.Logger.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	my := r.URL.Query().Get("my")
+	var (
+		list  []Dataset
+		err   error
+		count int64
+	)
+	if my == "true" {
+		count, err = h.Repository.CountPublic()
+	} else {
+		count, err = h.Repository.CountByUserId(userId)
+	}
+	if err != nil {
+		h.Logger.Errorf("failed to count dataset: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	pagination := util.NewPaginationFromRequest(r, count)
+
+	if my == "true" {
+		list, err = h.Repository.FindAllPublic(pagination.Offset(), pagination.Limit())
+	} else {
+		list, err = h.Repository.FindByUserId(userId, pagination.Offset(), pagination.Limit())
+	}
+	if err != nil {
+		h.Logger.Errorf("failed to find dataset list: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// make response body
+	response := make([]GetListResponseBody, 0, len(list))
+	for _, val := range list {
+		response = append(response, GetListResponseBody{
+			DatasetNo:   val.DatasetNo,
+			Name:        val.Name.String,
+			Description: val.Description.String,
+			Public:      val.Public.Bool,
+			CreateTime:  val.CreateTime,
+			UpdateTime:  val.UpdateTime,
+		})
+	}
+
+	util.WriteJson(w, http.StatusOK, util.ResponseBody{"datasets":response, "pagination": pagination})
 }
