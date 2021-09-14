@@ -19,6 +19,8 @@ type Handler struct {
 
 const _uploadDatasetFormFileKey = "dataset"
 
+const _requestBodyTooLarge = "http: request body too large"
+
 func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	// maximum upload of 10 MB files
 	const maxSize = 10 << 20
@@ -27,7 +29,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile(_uploadDatasetFormFileKey)
 	if err != nil {
 		// requires handling on big file input
-		if err.Error() == "http: request body too large" {
+		if err.Error() == _requestBodyTooLarge {
 			util.WriteError(w, http.StatusBadRequest, util.ErrFileTooLarge)
 			return
 		}
@@ -183,5 +185,5 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	util.WriteJson(w, http.StatusOK, util.ResponseBody{"datasets":response, "pagination": pagination})
+	util.WriteJson(w, http.StatusOK, util.ResponseBody{"datasets": response, "pagination": pagination})
 }
