@@ -43,7 +43,7 @@ func save(storage *cloud.AwsS3Client, file multipart.File) (string, error) {
 		return "", err
 	}
 
-	return storage.PutBytes(fBytes)
+	return storage.PutBytes(fBytes, cloud.WithContentType(_csv), cloud.WithExtension("csv"))
 }
 
 func parseToDataset(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, error) {
@@ -119,6 +119,7 @@ func zipToCsv(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, error
 			return nil, err
 		}
 	}
+
 
 	return buf, nil
 }

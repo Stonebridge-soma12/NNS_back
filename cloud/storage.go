@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"mime/multipart"
+	"strings"
 	"time"
 )
 
@@ -18,7 +19,32 @@ type AwsS3Client struct {
 	BucketName string
 }
 
-func (c *AwsS3Client) Put(file multipart.File) (url string, err error) {
+type Option interface {
+	apply(input *s3.PutObjectInput)
+}
+
+type optionFunc func(input *s3.PutObjectInput)
+
+func (f optionFunc) apply(input *s3.PutObjectInput) {
+	f(input)
+}
+
+func WithContentType(contentType string) Option {
+	return optionFunc(func(input *s3.PutObjectInput) {
+		input.ContentType = aws.String(contentType)
+	})
+}
+
+func WithExtension(extension string) Option {
+	return optionFunc(func(input *s3.PutObjectInput) {
+		filename := *(input.Key)
+		splitedFilename := strings.Split(filename, ".")
+		splitedFilename[len(splitedFilename) - 1] = extension
+		input.Key = aws.String(strings.Join(splitedFilename, "."))
+	})
+}
+
+func (c *AwsS3Client) Put(file multipart.File, options ...Option) (url string, err error) {
 	mType, err := mimetype.DetectReader(file)
 	if err != nil {
 		return "", err
@@ -38,6 +64,10 @@ func (c *AwsS3Client) Put(file multipart.File) (url string, err error) {
 		ACL: types.ObjectCannedACLPublicRead,
 	}
 
+	for _, option := range options {
+		option.apply(input)
+	}
+
 	if _, err := c.Client.PutObject(context.TODO(), input); err != nil {
 		return "", err
 	}
@@ -45,7 +75,7 @@ func (c *AwsS3Client) Put(file multipart.File) (url string, err error) {
 	return getS3ObjectUrl(c.BucketName, filename), nil
 }
 
-func (c *AwsS3Client) PutBytes(file []byte) (url string, err error) {
+func (c *AwsS3Client) PutBytes(file []byte, options ...Option) (url string, err error) {
 	mType := mimetype.Detect(file)
 
 	filename := generateFileName(mType.Extension())
@@ -58,11 +88,15 @@ func (c *AwsS3Client) PutBytes(file []byte) (url string, err error) {
 		ACL: types.ObjectCannedACLPublicRead,
 	}
 
+	for _, option := range options {
+		option.apply(input)
+	}
+
 	if _, err := c.Client.PutObject(context.TODO(), input); err != nil {
 		return "", err
 	}
 
-	return getS3ObjectUrl(c.BucketName, filename), nil
+	return getS3ObjectUrl(c.BucketName, *input.Key), nil
 }
 
 func generateFileName(addLast ...string) string {
