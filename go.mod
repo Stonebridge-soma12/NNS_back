@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.3.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.11.1 // indirect
 	github.com/felixge/httpsnoop v1.0.2 // indirect
+	github.com/gabriel-vasile/mimetype v1.3.1 // indirect
 	github.com/go-playground/validator/v10 v10.7.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

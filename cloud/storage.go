@@ -5,11 +5,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 	"io"
 	"mime/multipart"
-	"net/http"
-	"strings"
 	"time"
 )
 
@@ -19,19 +18,22 @@ type AwsS3Client struct {
 }
 
 func (c *AwsS3Client) Put(file multipart.File) (url string, err error) {
-	contentType, err := getFileContentType(file)
+	mType, err := mimetype.DetectReader(file)
 	if err != nil {
 		return "", err
 	}
 
-	fileExtension := "." + strings.Split(contentType, "/")[1]
-	filename := generateFileName(fileExtension)
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+
+	filename := generateFileName(mType.Extension())
 
 	input := &s3.PutObjectInput{
 		Bucket: aws.String(c.BucketName),
 		Key: aws.String(filename),
 		Body: file,
-		ContentType: aws.String(contentType),
+		ContentType: aws.String(mType.String()),
 		ACL: types.ObjectCannedACLPublicRead,
 	}
 
@@ -40,31 +42,6 @@ func (c *AwsS3Client) Put(file multipart.File) (url string, err error) {
 	}
 
 	return getS3ObjectUrl(c.BucketName, filename), nil
-}
-
-func getFileContentType(seeker io.ReadSeeker) (string, error) {
-	// At most the first 512 bytes of data are used:
-	// https://golang.org/src/net/http/sniff.go?s=646:688#L11
-	buff := make([]byte, 512)
-
-	if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-		return "", err
-	}
-
-	n, err := seeker.Read(buff)
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-
-	// Slice to remove fill-up zero values which cause a wrong content type detection in the next step
-	buff = buff[:n]
-
-	// Reset the read pointer if necessary
-	if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-		return "", err
-	}
-
-	return http.DetectContentType(buff), nil
 }
 
 func generateFileName(addLast ...string) string {
