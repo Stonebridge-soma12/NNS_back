@@ -39,9 +39,15 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	url, err := h.AwsS3Client.Put(file)
+	url, err := save(h.AwsS3Client, file)
 	if err != nil {
-		h.Logger.Errorf("failed to put object: %v", err)
+		if IsUnsupportedContentTypeError(err) {
+			h.Logger.Warn(err)
+			util.WriteError(w, http.StatusBadRequest, util.ErrUnSupportedContentType)
+			return
+		}
+
+		h.Logger.Errorf("failed to save file: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
@@ -53,29 +59,45 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newDataSet := Dataset{
+	// find last dataset_no
+	lastDatasetNo, err := h.Repository.FindNextDatasetNo(userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			lastDatasetNo = 0
+		} else {
+			h.Logger.Errorf("failed to select dataset: %v", err)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+			return
+		}
+	}
+
+	newDataset := Dataset{
+		ID:          0,
 		UserID:      userID,
+		DatasetNo:   lastDatasetNo + 1,
 		URL:         url,
 		Name:        sql.NullString{},
 		Description: sql.NullString{},
+		Public:      sql.NullBool{},
+		Status:      UPLOADED,
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 	}
 
-	insertedId, err := h.Repository.Insert(newDataSet)
-	if err != nil {
+	if _, err := h.Repository.Insert(newDataset); err != nil {
 		h.Logger.Errorf("failed to insert new dataset: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	util.WriteJson(w, http.StatusCreated, util.ResponseBody{"id": insertedId})
+	util.WriteJson(w, http.StatusCreated, util.ResponseBody{"datasetNo": newDataset.DatasetNo})
 }
 
 type UpdateFileConfigRequestBody struct {
-	Id          int64  `json:"id"`
+	DatasetNo   int64  `json:"datasetNo"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Public      bool   `json:"public"`
 }
 
 func (u *UpdateFileConfigRequestBody) Validate() error {
@@ -98,11 +120,19 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataset, err := h.Repository.FindByID(body.Id)
+	userID, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		h.Logger.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	dataset, err := h.Repository.FindByUserIdAndDatasetNo(userID, body.DatasetNo)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			h.Logger.Warnw("dataset not exist",
-				"id", body.Id)
+				"datasetNo", body.DatasetNo,
+				"userId", userID)
 			util.WriteError(w, http.StatusBadRequest, util.ErrInvlidDatasetId)
 			return
 		}
@@ -114,9 +144,11 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 
 	dataset.Name = sql.NullString{String: body.Name, Valid: true}
 	dataset.Description = sql.NullString{String: body.Description, Valid: true}
+	dataset.Status = EXIST
+	dataset.Public = sql.NullBool{Bool: body.Public, Valid: true}
 	dataset.UpdateTime = time.Now()
 
-	if err := h.Repository.Update(body.Id, dataset); err != nil {
+	if err := h.Repository.Update(dataset.ID, dataset); err != nil {
 		h.Logger.Errorf("failed to update dataset: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return

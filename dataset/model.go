@@ -2,7 +2,6 @@ package dataset
 
 import (
 	"database/sql"
-	"nns_back/util"
 	"time"
 )
 
@@ -14,7 +13,7 @@ type Dataset struct {
 	Name        sql.NullString `db:"name"`        // dataset name, unique
 	Description sql.NullString `db:"description"` // dataset description
 	Public      sql.NullBool   `db:"public"`
-	Status      util.Status    `db:"status"`
+	Status      string         `db:"status"`
 	CreateTime  time.Time      `db:"create_time"`
 	UpdateTime  time.Time      `db:"update_time"`
 }
@@ -22,4 +21,10 @@ type Dataset struct {
 const (
 	maxDatasetName        = 100
 	maxDatasetDescription = 2000
+)
+
+const (
+	EXIST    = "EXIST"
+	DELETED  = "DELETED"
+	UPLOADED = "UPLOADED"
 )

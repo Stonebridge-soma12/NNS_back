@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"bytes"
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -33,6 +34,26 @@ func (c *AwsS3Client) Put(file multipart.File) (url string, err error) {
 		Bucket: aws.String(c.BucketName),
 		Key: aws.String(filename),
 		Body: file,
+		ContentType: aws.String(mType.String()),
+		ACL: types.ObjectCannedACLPublicRead,
+	}
+
+	if _, err := c.Client.PutObject(context.TODO(), input); err != nil {
+		return "", err
+	}
+
+	return getS3ObjectUrl(c.BucketName, filename), nil
+}
+
+func (c *AwsS3Client) PutBytes(file []byte) (url string, err error) {
+	mType := mimetype.Detect(file)
+
+	filename := generateFileName(mType.Extension())
+
+	input := &s3.PutObjectInput{
+		Bucket: aws.String(c.BucketName),
+		Key: aws.String(filename),
+		Body: bytes.NewReader(file),
 		ContentType: aws.String(mType.String()),
 		ACL: types.ObjectCannedACLPublicRead,
 	}

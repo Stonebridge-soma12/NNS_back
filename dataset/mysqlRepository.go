@@ -34,6 +34,7 @@ func (m *MysqlRepository) FindAllPublic(offset, limit int) ([]Dataset, error) {
        ds.update_time
 FROM dataset ds
 WHERE ds.public = 1 and ds.status = 'EXIST'
+ORDER BY ds.id DESC 
 LIMIT ?, ?;`, offset, limit)
 	if err != nil {
 		return nil, err
@@ -53,6 +54,13 @@ LIMIT ?, ?;`, offset, limit)
 	return dsList, nil
 }
 
+func (m *MysqlRepository) FindNextDatasetNo(userId int64) (int64, error) {
+	var dsn int64
+	err := m.DB.QueryRowx(
+		`SELECT ds.dataset_no FROM dataset ds WHERE ds.user_id = ? and ds.status != 'DELETED' ORDER BY ds.dataset_no DESC LIMIT 1`, userId).Scan(&dsn)
+	return dsn, err
+}
+
 func (m *MysqlRepository) FindByUserId(userId int64, offset, limit int) ([]Dataset, error) {
 	rows, err := m.DB.Queryx(
 		`SELECT ds.id,
@@ -67,6 +75,7 @@ func (m *MysqlRepository) FindByUserId(userId int64, offset, limit int) ([]Datas
        ds.update_time
 FROM dataset ds
 WHERE ds.user_id = ? and ds.status = 'EXIST'
+ORDER BY ds.id DESC 
 LIMIT ?, ?;`, userId, offset, limit)
 	if err != nil {
 		return nil, err
@@ -101,7 +110,27 @@ func (m *MysqlRepository) FindByID(id int64) (Dataset, error) {
        ds.update_time
 FROM dataset ds
 WHERE ds.id = ?
-  and ds.status = 'EXIST';`, id).StructScan(&ds)
+  and ds.status != 'DELETED';`, id).StructScan(&ds)
+
+	return ds, err
+}
+
+func (m *MysqlRepository) FindByUserIdAndDatasetNo(userId int64, datasetNo int64) (Dataset, error) {
+	ds := Dataset{}
+	err := m.DB.QueryRowx(
+		`SELECT ds.id,
+       ds.user_id,
+       ds.dataset_no,
+       ds.url,
+       ds.name,
+       ds.description,
+       ds.public,
+       ds.status,
+       ds.create_time,
+       ds.update_time
+FROM dataset ds
+WHERE ds.user_id = ? AND ds.dataset_no = ?
+  AND ds.status != 'DELETED';`, userId, datasetNo).StructScan(&ds)
 
 	return ds, err
 }
@@ -146,7 +175,7 @@ func (m *MysqlRepository) Update(id int64, dataset Dataset) error {
                    status 	   = :status,
                    create_time = :create_time,
                    update_time = :update_time
-WHERE id = :id and status = 'EXIST';`,dataset)
+WHERE id = :id and status != 'DELETED';`,dataset)
 
 	return err
 }
