@@ -3,10 +3,9 @@ package trainMonitor
 type Monitor struct {
 	Epoch    Epoch
 	TrainLog TrainLog
+	Channel  chan Monitor
 }
 
 func (m Monitor) Send() {
-	ch := make(chan Monitor)
-
-	ch <- m
+	m.Channel <- m
 }
