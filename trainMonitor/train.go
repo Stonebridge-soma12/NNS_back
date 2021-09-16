@@ -6,7 +6,7 @@ import (
 )
 
 type Train struct {
-	Id      int     `db:"id" json:"id"`
+	Id      int64   `db:"id" json:"id"`
 	Status  bool    `db:"status" json:"status"`
 	Acc     float64 `db:"acc" json:"acc"`
 	Loss    float64 `db:"loss" json:"loss"`
@@ -37,4 +37,5 @@ type TrainRepository interface {
 	Delete(opts ...Option) error
 	Find(opts ...Option) (Train, error)
 	FindAll(opts ...Option) ([]Train, error)
+	Update(opts ...Option) error
 }
