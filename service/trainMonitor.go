@@ -12,7 +12,7 @@ const (
 	epochLogFormat = "%s Epoch=%d Accuracy=%g Loss=%g Val_accuracy=%g Val_Loss=%g Learning_rate=%g"
 )
 
-func (e Env) NewEpochAndLogHandler(w http.ResponseWriter, r *http.Request) {
+func (e Env) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	var epoch trainMonitor.Epoch
 	epochRepo := trainMonitor.EpochDbRepository{
@@ -71,5 +71,8 @@ func (e Env) NewEpochAndLogHandler(w http.ResponseWriter, r *http.Request) {
 		TrainLog: trainLog,
 	}
 
-	monitor.Send()
+	err = trainMonitor.SendingMonitor(monitor, w, r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, ErrMsg(err.Error()))
+	}
 }

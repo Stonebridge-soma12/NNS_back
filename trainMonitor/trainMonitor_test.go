@@ -4,6 +4,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"os"
+	"testing"
 )
 
 func getDBInfo() string {
@@ -12,4 +13,8 @@ func getDBInfo() string {
 	url := os.Getenv("url")
 
 	return fmt.Sprintf("%s:%s@tcp(%s)/nns?parseTime=true&charset=utf8mb4", id, pw, url)
+}
+
+func TestPostEpochHandler(t *testing.T) {
+
 }

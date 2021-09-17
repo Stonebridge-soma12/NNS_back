@@ -71,6 +71,9 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", e.GenerateShareKeyHandler).Methods(_Get...)
 
+	// Train monitor
+	authRouter.HandleFunc("/api/epoch", e.NewEpochHandler).Methods(_Post...)
+
 	// web socket
 	hub := ws.NewHub(e.DB)
 

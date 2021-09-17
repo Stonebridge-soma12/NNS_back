@@ -1,35 +1,54 @@
 package trainMonitor
 
 import (
+	"github.com/gorilla/websocket"
+	"log"
 	"net/http"
 )
 
-func PostEpochHandler(r *http.Request, er EpochRepository) error {
-	var epoch Epoch
-	err := epoch.Bind(r)
-	if err != nil {
-		return err
-	}
+const (
+	socketReadSize    = 1024
+	socketWriteSize   = 1024
+	clientChannelSize = 1024
+)
 
-	err = er.Insert(epoch)
-	if err != nil {
-		return err
-	}
-
-	return nil
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  socketReadSize,
+	WriteBufferSize: socketWriteSize,
+	CheckOrigin:     defaultCheckOrigin,
 }
 
-func PostLogHandler(r *http.Request, er TrainLogRepository) error {
+func defaultCheckOrigin(r *http.Request) bool {
+	return true
+}
+
+func SendingMonitor(monitor Monitor, w http.ResponseWriter, r *http.Request) error {
 	var trainLog TrainLog
 	err := trainLog.Bind(r)
 	if err != nil {
 		return err
 	}
-
-	err = er.Insert(trainLog)
-	if err != nil {
-		return err
-	}
+	serveMonitor(monitor, w, r)
 
 	return nil
+}
+
+func serveMonitor(monitor Monitor, w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	client := Client{
+		conn:    conn,
+		channel: make(chan []byte, clientChannelSize),
+	}
+	err = client.Send(monitor)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	go client.write()
 }
