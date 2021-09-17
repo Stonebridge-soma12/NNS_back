@@ -158,6 +158,11 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 type GetListResponseBody struct {
+	Datasets   []DatasetDto    `json:"datasets"`
+	Pagination util.Pagination `json:"pagination"`
+}
+
+type DatasetDto struct {
 	DatasetNo   int64     `json:"datasetNo"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
@@ -205,9 +210,9 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// make response body
-	response := make([]GetListResponseBody, 0, len(list))
+	datasets := make([]DatasetDto, 0, len(list))
 	for _, val := range list {
-		response = append(response, GetListResponseBody{
+		datasets = append(datasets, DatasetDto{
 			DatasetNo:   val.DatasetNo,
 			Name:        val.Name.String,
 			Description: val.Description.String,
@@ -217,5 +222,10 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	util.WriteJson(w, http.StatusOK, util.ResponseBody{"datasets": response, "pagination": pagination})
+	response := GetListResponseBody{
+		Datasets:   datasets,
+		Pagination: pagination,
+	}
+
+	util.WriteJson(w, http.StatusOK, response)
 }
