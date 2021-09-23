@@ -2,10 +2,6 @@ package dataset
 
 type Repository interface {
 	FindNextDatasetNo(userId int64) (int64, error)
-
-	CountByUserId(userId int64) (int64, error)
-
-	FindByUserId(userId int64, offset, limit int) ([]Dataset, error)
 	FindByID(id int64) (Dataset, error)
 	FindByUserIdAndDatasetNo(userId int64, datasetNo int64) (Dataset, error)
 	Insert(dataset Dataset) (int64, error)

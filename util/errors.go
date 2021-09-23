@@ -11,7 +11,7 @@ const (
 	ErrInvalidRequestBody     ErrMsg = "Invalid Request Body"
 	ErrInvalidFormat          ErrMsg = "Invalid Format"
 	ErrInvalidImageId         ErrMsg = "Invalid Image ID"
-	ErrInvlidDatasetId        ErrMsg = "Invalid Dataset ID"
+	ErrInvalidDatasetId       ErrMsg = "Invalid Dataset ID"
 	ErrFileTooLarge           ErrMsg = "File Too Large"
 	ErrUnSupportedContentType ErrMsg = "Unsupported Content Type"
 
