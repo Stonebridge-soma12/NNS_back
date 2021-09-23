@@ -27,7 +27,7 @@
 
             var conn;
             if (window["WebSocket"]) {
-                conn = new WebSocket("ws://localhost:8080/ws/1");
+                conn = new WebSocket("ws://localhost:8080/ws/abcde");
 
                 conn.onclose = function (event) {
                     document.getElementsByTagName("h1")[0].innerHTML = `Connection closed.`
