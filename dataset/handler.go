@@ -273,6 +273,49 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	util.WriteJson(w, http.StatusOK, response)
 }
 
+func (h *Handler) DeleteDataset(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		h.Logger.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	datasetId, _ := util.Atoi64(mux.Vars(r)["datasetId"])
+
+	// exist check
+	dataset, err := h.Repository.FindByID(datasetId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			h.Logger.Warnw("invalid datasetId",
+				"id", datasetId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrInvalidDatasetId)
+			return
+		}
+		h.Logger.Errorf("failed to find dataset: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if dataset.UserID != userId {
+		// inaccessible object
+		h.Logger.Warnw("inaccessible dataset",
+			"id", datasetId,
+			"userId", userId)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidDatasetId)
+		return
+	}
+
+	// delete dataset
+	if err := h.Repository.Delete(datasetId); err != nil {
+		h.Logger.Errorf("failed to delete dataset: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // TODO: Add author data to response body
 func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)

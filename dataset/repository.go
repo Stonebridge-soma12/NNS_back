@@ -3,7 +3,6 @@ package dataset
 type Repository interface {
 	FindNextDatasetNo(userId int64) (int64, error)
 	FindByID(id int64) (Dataset, error)
-	FindByUserIdAndDatasetNo(userId int64, datasetNo int64) (Dataset, error)
 	Insert(dataset Dataset) (int64, error)
 	Update(id int64, dataset Dataset) error
 	Delete(id int64) error

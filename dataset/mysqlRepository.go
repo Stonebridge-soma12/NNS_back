@@ -319,26 +319,6 @@ WHERE ds.id = ?
 	return ds, err
 }
 
-func (m *MysqlRepository) FindByUserIdAndDatasetNo(userId int64, datasetNo int64) (Dataset, error) {
-	ds := Dataset{}
-	err := m.DB.QueryRowx(
-		`SELECT ds.id,
-       ds.user_id,
-       ds.dataset_no,
-       ds.url,
-       ds.name,
-       ds.description,
-       ds.public,
-       ds.status,
-       ds.create_time,
-       ds.update_time
-FROM dataset ds
-WHERE ds.user_id = ? AND ds.dataset_no = ?
-  AND ds.status != 'DELETED';`, userId, datasetNo).StructScan(&ds)
-
-	return ds, err
-}
-
 func (m *MysqlRepository) Insert(dataset Dataset) (int64, error) {
 	result, err := m.DB.NamedExec(
 		`INSERT INTO dataset (user_id,
@@ -389,12 +369,7 @@ WHERE id = :id and status != 'DELETED';
 `, dataset)
 
 	usable := dataset.Public.Bool && dataset.Status == EXIST
-	_, err = tx.Exec(`
-UPDATE dataset_library dsl
-SET dsl.usable = ?
-WHERE dsl.dataset_id = ?;
-`, usable, dataset.ID)
-
+	err = changeDatasetLibraryUsable(tx, dataset.ID, usable)
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -403,7 +378,36 @@ WHERE dsl.dataset_id = ?;
 }
 
 func (m *MysqlRepository) Delete(id int64) error {
-	_, err := m.DB.Exec(`UPDATE dataset SET status = 'DELETED' WHERE id = ? and status = 'EXIST'`, id)
+	tx, err := m.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`UPDATE dataset SET status = 'DELETED' WHERE id = ? and status = 'EXIST'`, id)
+	if err != nil {
+		return err
+	}
+
+	err = changeDatasetLibraryUsable(tx, id, false)
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func changeDatasetLibraryUsable(tx *sqlx.Tx, datasetId int64, usable bool) error {
+	_, err := tx.Exec(`
+UPDATE dataset_library dsl
+SET dsl.usable = ?
+WHERE dsl.dataset_id = ?;
+`, usable, datasetId)
+
 	return err
 }
 

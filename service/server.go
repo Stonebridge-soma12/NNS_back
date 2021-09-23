@@ -107,7 +107,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Repository: &dataset.MysqlRepository{
 			DB: db,
 		},
-		Logger:      logger,
+		Logger: logger,
 		AwsS3Client: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: datasetBucketName,
@@ -117,6 +117,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/api/datasets", datasetHandler.GetList).Methods(_Get...)
 	authRouter.HandleFunc("/api/dataset/file", datasetHandler.UploadFile).Methods(_Post...)
 	authRouter.HandleFunc("/api/dataset", datasetHandler.UpdateFileConfig).Methods(_Post...)
+	authRouter.HandleFunc("/api/dataset/{datasetId:[0-9]+}", datasetHandler.DeleteDataset).Methods(_Delete...)
 
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.GetLibraryList).Methods(_Get...)
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.AddNewDatasetToLibrary).Methods(_Post...)
