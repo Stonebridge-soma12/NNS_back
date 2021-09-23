@@ -166,6 +166,22 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err = h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userID, dataset.ID)
+	if err != nil && err != sql.ErrNoRows{
+		h.Logger.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if err == sql.ErrNoRows {
+		// insert into library
+		if err := h.Repository.AddDatasetToDatasetLibrary(userID, dataset.ID); err != nil {
+			h.Logger.Errorf("failed to AddDatasetToDatasetLibrary(): %v", err)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+			return
+		}
+	}
+
 	util.WriteJson(w, http.StatusOK, nil)
 }
 
@@ -400,7 +416,7 @@ func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request)
 		if err == sql.ErrNoRows {
 			h.Logger.Warnw("invalid datasetId",
 				"requested datasetId", body.DatasetId)
-			util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+			util.WriteError(w, http.StatusBadRequest, util.ErrInvalidDatasetId)
 			return
 		}
 

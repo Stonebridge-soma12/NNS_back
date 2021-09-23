@@ -487,10 +487,10 @@ WHERE dsl.user_id = ?
 func (m *MysqlRepository) AddDatasetToDatasetLibrary(userId int64, datasetId int64) error {
 	_, err := m.DB.Exec(`
 INSERT INTO dataset_library (user_id, dataset_id, usable)
-SELECT ? "user_id", ds.id "dataset_id", ds.status = 'EXIST' AND ds.public IS TRUE "usable"
+SELECT ? "user_id", ds.id "dataset_id", (ds.public IS TRUE OR ds.user_id = ?) "usable"
 FROM dataset ds
-WHERE ds.id = ?;
-`, userId, datasetId)
+WHERE ds.id = ? AND ds.status = 'EXIST';
+`, userId, userId, datasetId)
 
 	return err
 }
