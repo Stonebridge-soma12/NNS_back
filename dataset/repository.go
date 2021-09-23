@@ -11,4 +11,10 @@ type Repository interface {
 	Insert(dataset Dataset) (int64, error)
 	Update(id int64, dataset Dataset) error
 	Delete(id int64) error
+
+	FindDatasetFromDatasetLibraryByUserId(userId int64, offset, limit int) ([]Dataset, error)
+	CountDatasetLibraryByUserId(userId int64) (int64, error)
+	FindDatasetFromDatasetLibraryByDatasetId(userId int64, datasetId int64) (Dataset, error)
+	AddDatasetToLibrary(userId int64, datasetId int64) error
+	DeleteDatasetFromLibrary(userId int64, datasetId int64) error
 }

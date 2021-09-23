@@ -3,6 +3,7 @@ package dataset
 import (
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"net/http"
 	"nns_back/cloud"
@@ -12,8 +13,8 @@ import (
 )
 
 type Handler struct {
-	Repository  Repository
-	Logger      *zap.SugaredLogger
+	Repository Repository
+	Logger     *zap.SugaredLogger
 	AwsS3Client *cloud.AwsS3Client
 }
 
@@ -228,4 +229,129 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	util.WriteJson(w, http.StatusOK, response)
+}
+
+func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		h.Logger.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	cnt, err := h.Repository.CountDatasetLibraryByUserId(userId)
+	if err != nil {
+		h.Logger.Errorf("CountDatasetLibraryByUserId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	pagination := util.NewPaginationFromRequest(r, cnt)
+
+	libraryContents, err := h.Repository.FindDatasetFromDatasetLibraryByUserId(userId, pagination.Offset(), pagination.Limit())
+	if err != nil {
+		h.Logger.Errorf("FindDatasetFromDatasetLibraryByUserId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// make response body
+	datasets := make([]DatasetDto, 0, len(libraryContents))
+	for _, val := range libraryContents {
+		datasets = append(datasets, DatasetDto{
+			DatasetNo:   val.DatasetNo,
+			Name:        val.Name.String,
+			Description: val.Description.String,
+			Public:      val.Public.Bool,
+			CreateTime:  val.CreateTime,
+			UpdateTime:  val.UpdateTime,
+		})
+	}
+
+	response := GetListResponseBody{
+		Datasets:   datasets,
+		Pagination: pagination,
+	}
+
+	util.WriteJson(w, http.StatusOK, response)
+}
+
+type AddNewDatasetToLibraryRequestBody struct {
+	DatasetId int64 `json:"datasetId"`
+}
+
+var ErrInvalidDatasetId = errors.New("invalid datasetId")
+
+func (a AddNewDatasetToLibraryRequestBody) Validate() error {
+	if a.DatasetId == 0 {
+		return ErrInvalidDatasetId
+	}
+
+	return nil
+}
+
+func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request) {
+	body := AddNewDatasetToLibraryRequestBody{}
+	if err := util.BindJson(r.Body, body); err != nil {
+		h.Logger.Errorf("Failed to bind json body: %v", err)
+		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		return
+	}
+
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		h.Logger.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// datasetId validation: is dataset public or uploaded by me
+	toAddDataset, err := h.Repository.FindByID(body.DatasetId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			h.Logger.Warnw("invalid datasetId",
+				"requested datasetId", body.DatasetId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+			return
+		}
+
+		h.Logger.Errorf("failed to FindByID(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if !toAddDataset.Public.Bool && toAddDataset.UserID != userId {
+		// this dataset is inaccessible
+		h.Logger.Warnw("invalid datasetId",
+			"requested datasetId", body.DatasetId)
+		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		return
+	}
+
+	// check duplicate
+	if _, err := h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userId, toAddDataset.ID); err != sql.ErrNoRows {
+		if err == nil {
+			// already exist
+			h.Logger.Warnw("duplicated datasetId",
+				"requested datasetId", body.DatasetId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrDuplicate)
+			return
+		} else {
+			h.Logger.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+			return
+		}
+	}
+
+	if err := h.Repository.AddDatasetToLibrary(userId, toAddDataset.ID); err != nil {
+		h.Logger.Errorf("failed to AddDatasetToLibrary(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Request) {
+
 }

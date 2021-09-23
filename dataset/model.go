@@ -28,3 +28,11 @@ const (
 	DELETED  = "DELETED"
 	UPLOADED = "UPLOADED"
 )
+
+type DatasetLibrary struct {
+	Id         int64     `db:"id"`
+	UserId     int64     `db:"user_id"`
+	DatasetId  int64     `db:"dataset_id"`
+	CreateTime time.Time `db:"create_time"`
+	UpdateTime time.Time `db:"update_time"`
+}
