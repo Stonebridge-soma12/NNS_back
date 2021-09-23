@@ -3,6 +3,7 @@ package dataset
 import (
 	"database/sql"
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"net/http"
@@ -343,8 +344,8 @@ func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if err := h.Repository.AddDatasetToLibrary(userId, toAddDataset.ID); err != nil {
-		h.Logger.Errorf("failed to AddDatasetToLibrary(): %v", err)
+	if err := h.Repository.AddDatasetToDatasetLibrary(userId, toAddDataset.ID); err != nil {
+		h.Logger.Errorf("failed to AddDatasetToDatasetLibrary(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
@@ -353,5 +354,37 @@ func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *Handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Request) {
+	datasetId, _ := util.Atoi64(mux.Vars(r)["datasetId"])
 
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		h.Logger.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// find dataset from library
+	toDeleteDatasetFromDatasetLibrary, err := h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userId, datasetId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// invalid datasetId: dataset not exist in my library
+			h.Logger.Warnw("invalid datasetId",
+				"requested datasetId", datasetId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrNotFound)
+			return
+		}
+
+		h.Logger.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// delete dataset from library
+	if err := h.Repository.DeleteDatasetFromDatasetLibrary(userId, toDeleteDatasetFromDatasetLibrary.ID); err != nil {
+		h.Logger.Errorf("failed to DeleteDatasetFromDatasetLibrary(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

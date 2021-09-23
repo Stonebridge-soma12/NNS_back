@@ -15,6 +15,6 @@ type Repository interface {
 	FindDatasetFromDatasetLibraryByUserId(userId int64, offset, limit int) ([]Dataset, error)
 	CountDatasetLibraryByUserId(userId int64) (int64, error)
 	FindDatasetFromDatasetLibraryByDatasetId(userId int64, datasetId int64) (Dataset, error)
-	AddDatasetToLibrary(userId int64, datasetId int64) error
-	DeleteDatasetFromLibrary(userId int64, datasetId int64) error
+	AddDatasetToDatasetLibrary(userId int64, datasetId int64) error
+	DeleteDatasetFromDatasetLibrary(userId int64, datasetId int64) error
 }

@@ -175,12 +175,107 @@ func (m *MysqlRepository) Update(id int64, dataset Dataset) error {
                    status 	   = :status,
                    create_time = :create_time,
                    update_time = :update_time
-WHERE id = :id and status != 'DELETED';`,dataset)
+WHERE id = :id and status != 'DELETED';`, dataset)
 
 	return err
 }
 
 func (m *MysqlRepository) Delete(id int64) error {
 	_, err := m.DB.Exec(`UPDATE dataset SET status = 'DELETED' WHERE id = ? and status = 'EXIST'`, id)
+	return err
+}
+
+func (m *MysqlRepository) FindDatasetFromDatasetLibraryByUserId(userId int64, offset, limit int) ([]Dataset, error) {
+	rows, err := m.DB.Queryx(`
+SELECT ds.id              "id",
+       ds.user_id         "user_id",
+       ds.dataset_no      "dataset_no",
+       ds.url             "url",
+       ds.name            "name",
+       ds.description     "description",
+       ds.public          "public",
+       ds.status          "status",
+       ds.create_time     "create_time",
+       ds.update_time     "update_time",
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library"
+FROM dataset ds
+         JOIN dataset_library dsl ON ds.id = dsl.dataset_id
+WHERE dsl.user_id = ?
+ORDER BY dsl.create_time DESC
+LIMIT ?, ?;
+`, userId, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	datasets := make([]Dataset, 0)
+	for rows.Next() {
+		dataset := Dataset{}
+		if err := rows.StructScan(&dataset); err != nil {
+			return nil, err
+		}
+
+		datasets = append(datasets, dataset)
+	}
+
+	return datasets, nil
+}
+
+func (m *MysqlRepository) CountDatasetLibraryByUserId(userId int64) (int64, error) {
+	var count int64
+	err := m.DB.QueryRowx(`
+SELECT COUNT(*)
+FROM dataset_library dsl
+WHERE dsl.user_id = ?;
+`, userId).Scan(&count)
+
+	return count, err
+}
+
+func (m *MysqlRepository) FindDatasetFromDatasetLibraryByDatasetId(userId int64, datasetId int64) (Dataset, error) {
+	var dataset Dataset
+	err := m.DB.QueryRowx(`
+SELECT ds.id              "id",
+       ds.user_id         "user_id",
+       ds.dataset_no      "dataset_no",
+       ds.url             "url",
+       ds.name            "name",
+       ds.description     "description",
+       ds.public          "public",
+       ds.status          "status",
+       ds.create_time     "create_time",
+       ds.update_time     "update_time",
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library"
+FROM dataset ds
+         JOIN dataset_library dsl ON ds.id = dsl.dataset_id
+WHERE dsl.user_id = ?
+  AND dsl.dataset_id = ?;
+`, userId, datasetId).StructScan(&dataset)
+
+	return dataset, err
+}
+
+func (m *MysqlRepository) AddDatasetToDatasetLibrary(userId int64, datasetId int64) error {
+	_, err := m.DB.Exec(`
+INSERT INTO dataset_library (user_id, dataset_id, usable)
+SELECT ? "user_id", ds.id "dataset_id", ds.status = 'EXIST' AND ds.public IS TRUE "usable"
+FROM dataset ds
+WHERE ds.id = ?;
+`, userId, datasetId)
+
+	return err
+}
+
+func (m *MysqlRepository) DeleteDatasetFromDatasetLibrary(userId int64, datasetId int64) error {
+	_, err := m.DB.Exec(`
+DELETE dsl
+FROM dataset_library dsl
+WHERE dsl.user_id = ?
+  AND dsl.dataset_id = ?;
+`, userId, datasetId)
+
 	return err
 }

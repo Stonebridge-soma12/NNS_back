@@ -19,6 +19,7 @@ create table dataset_library
         primary key,
     user_id bigint not null,
     dataset_id bigint not null,
+    usable tinyint(1) not null,
     create_time datetime default current_timestamp() not null,
     update_time datetime default current_timestamp() not null,
     constraint dataset_library_uk_user_id_dataset_id
@@ -27,4 +28,3 @@ create table dataset_library
 
 create index dataset_library__index_user_id
     on dataset_library (user_id);
-
