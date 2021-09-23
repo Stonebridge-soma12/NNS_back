@@ -293,7 +293,7 @@ func (a AddNewDatasetToLibraryRequestBody) Validate() error {
 
 func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request) {
 	body := AddNewDatasetToLibraryRequestBody{}
-	if err := util.BindJson(r.Body, body); err != nil {
+	if err := util.BindJson(r.Body, &body); err != nil {
 		h.Logger.Errorf("Failed to bind json body: %v", err)
 		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
 		return
