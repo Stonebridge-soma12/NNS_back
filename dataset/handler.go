@@ -14,8 +14,8 @@ import (
 )
 
 type Handler struct {
-	Repository Repository
-	Logger     *zap.SugaredLogger
+	Repository  Repository
+	Logger      *zap.SugaredLogger
 	AwsS3Client *cloud.AwsS3Client
 }
 
@@ -165,14 +165,25 @@ type GetListResponseBody struct {
 }
 
 type DatasetDto struct {
+	Id          int64     `json:"id"`
 	DatasetNo   int64     `json:"datasetNo"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Public      bool      `json:"public"`
 	CreateTime  time.Time `json:"createTime"`
 	UpdateTime  time.Time `json:"updateTime"`
+	Usable      bool      `json:"usable"`
+	InLibrary   bool      `json:"inLibrary"`
 }
 
+const (
+	_createrName     = "createrName"
+	_createrNameLike = "createrNameLike"
+	_title           = "title"
+	_titleLike       = "titleLike"
+)
+
+// TODO: Add author data to response body
 func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -181,16 +192,26 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	my := r.URL.Query().Get("my")
+	searchType := r.URL.Query().Get("searchType")
+	searchContent := r.URL.Query().Get("searchContent")
+
 	var (
-		list  []Dataset
-		err   error
-		count int64
+		count    int64
+		datasets []Dataset
+		err      error
 	)
-	if my == "true" {
+
+	switch searchType {
+	case _createrName:
+		count, err = h.Repository.CountPublicByUserName(searchContent)
+	case _createrNameLike:
+		count, err = h.Repository.CountPublicByUserNameLike(searchContent)
+	case _title:
+		count, err = h.Repository.CountPublicByTitle(searchContent)
+	case _titleLike:
+		count, err = h.Repository.CountPublicByTitleLike(searchContent)
+	default:
 		count, err = h.Repository.CountPublic()
-	} else {
-		count, err = h.Repository.CountByUserId(userId)
 	}
 	if err != nil {
 		h.Logger.Errorf("failed to count dataset: %v", err)
@@ -200,10 +221,17 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 
 	pagination := util.NewPaginationFromRequest(r, count)
 
-	if my == "true" {
-		list, err = h.Repository.FindAllPublic(pagination.Offset(), pagination.Limit())
-	} else {
-		list, err = h.Repository.FindByUserId(userId, pagination.Offset(), pagination.Limit())
+	switch searchType {
+	case _createrName:
+		datasets, err = h.Repository.FindAllPublicByUserName(userId, searchContent, pagination.Offset(), pagination.Limit())
+	case _createrNameLike:
+		datasets, err = h.Repository.FindAllPublicByUserNameLike(userId, searchContent, pagination.Offset(), pagination.Limit())
+	case _title:
+		datasets, err = h.Repository.FindAllPublicByTitle(userId, searchContent, pagination.Offset(), pagination.Limit())
+	case _titleLike:
+		datasets, err = h.Repository.FindAllPublicByTitleLike(userId, searchContent, pagination.Offset(), pagination.Limit())
+	default:
+		datasets, err = h.Repository.FindAllPublic(userId, pagination.Offset(), pagination.Limit())
 	}
 	if err != nil {
 		h.Logger.Errorf("failed to find dataset list: %v", err)
@@ -212,26 +240,30 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// make response body
-	datasets := make([]DatasetDto, 0, len(list))
-	for _, val := range list {
-		datasets = append(datasets, DatasetDto{
+	responseDatasetDtos := make([]DatasetDto, 0, len(datasets))
+	for _, val := range datasets {
+		responseDatasetDtos = append(responseDatasetDtos, DatasetDto{
+			Id:          val.ID,
 			DatasetNo:   val.DatasetNo,
 			Name:        val.Name.String,
 			Description: val.Description.String,
 			Public:      val.Public.Bool,
 			CreateTime:  val.CreateTime,
 			UpdateTime:  val.UpdateTime,
+			Usable:      val.Usable.Bool,
+			InLibrary:   val.InLibrary.Bool,
 		})
 	}
 
 	response := GetListResponseBody{
-		Datasets:   datasets,
+		Datasets:   responseDatasetDtos,
 		Pagination: pagination,
 	}
 
 	util.WriteJson(w, http.StatusOK, response)
 }
 
+// TODO: Add author data to response body
 func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -260,12 +292,15 @@ func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 	datasets := make([]DatasetDto, 0, len(libraryContents))
 	for _, val := range libraryContents {
 		datasets = append(datasets, DatasetDto{
+			Id:          val.ID,
 			DatasetNo:   val.DatasetNo,
 			Name:        val.Name.String,
 			Description: val.Description.String,
 			Public:      val.Public.Bool,
 			CreateTime:  val.CreateTime,
 			UpdateTime:  val.UpdateTime,
+			Usable:      val.Usable.Bool,
+			InLibrary:   val.InLibrary.Bool,
 		})
 	}
 

@@ -16,10 +16,10 @@ type User struct {
 	Description  sql.NullString `db:"description"`
 	Email        sql.NullString `db:"email"` // TODO: e-mail verification
 	WebSite      sql.NullString `db:"web_site"`
-	LoginId    sql.NullString `db:"login_id"`
-	LoginPw    util.NullBytes `db:"login_pw"`
-	Status     util.Status    `db:"status"`
-	CreateTime time.Time      `db:"create_time"`
+	LoginId      sql.NullString `db:"login_id"`
+	LoginPw      util.NullBytes `db:"login_pw"`
+	Status       util.Status    `db:"status"`
+	CreateTime   time.Time      `db:"create_time"`
 	UpdateTime   time.Time      `db:"update_time"`
 }
 

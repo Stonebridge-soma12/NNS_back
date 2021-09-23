@@ -18,8 +18,8 @@ type Dataset struct {
 	UpdateTime  time.Time      `db:"update_time"`
 
 	// additional
-	InLibrary bool `db:"in_library"`
-	Usable bool `db:"usable"`
+	InLibrary sql.NullBool `db:"in_library"`
+	Usable    sql.NullBool `db:"usable"`
 }
 
 const (

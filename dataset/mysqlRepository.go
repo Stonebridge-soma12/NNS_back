@@ -2,40 +2,108 @@ package dataset
 
 import (
 	"github.com/jmoiron/sqlx"
+	"nns_back/util"
 )
 
 type MysqlRepository struct {
 	DB *sqlx.DB
 }
 
+//func (m *MysqlRepository) count(builder squirrel.SelectBuilder) (int64, error) {
+//	query, args, err := builder.Columns("COUNT(ds.*)").From("dataset ds").ToSql()
+//	if err != nil {
+//		return 0, err
+//	}
+//
+//	var count int64
+//	err = m.DB.QueryRowx(query, args...).Scan(&count)
+//	return count, err
+//}
+
 func (m *MysqlRepository) CountPublic() (int64, error) {
 	var count int64
-	err := m.DB.QueryRowx(`SELECT count(*) FROM dataset ds WHERE ds.public = 1 and ds.status = 'EXIST';`).Scan(&count)
-	return count, err
-}
-
-func (m *MysqlRepository) CountByUserId(userId int64) (int64, error) {
-	var count int64
-	err := m.DB.QueryRowx(`SELECT count(*) FROM dataset ds WHERE ds.user_id = ? and ds.status = 'EXIST'`, userId).Scan(&count)
-	return count, err
-}
-
-func (m *MysqlRepository) FindAllPublic(offset, limit int) ([]Dataset, error) {
-	rows, err := m.DB.Queryx(
-		`SELECT ds.id,
-       ds.user_id,
-       ds.dataset_no,
-       ds.url,
-       ds.name,
-       ds.description,
-       ds.public,
-       ds.status,
-       ds.create_time,
-       ds.update_time
+	err := m.DB.QueryRowx(`
+SELECT count(*)
 FROM dataset ds
-WHERE ds.public = 1 and ds.status = 'EXIST'
-ORDER BY ds.id DESC 
-LIMIT ?, ?;`, offset, limit)
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST';
+`).Scan(&count)
+	return count, err
+}
+
+func (m *MysqlRepository) CountPublicByUserName(userName string) (int64, error) {
+	var count int64
+	err := m.DB.QueryRowx(`
+SELECT count(*)
+FROM dataset ds
+         JOIN user u on ds.user_id = u.id
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND u.name = ?;
+`, userName).Scan(&count)
+	return count, err
+}
+
+func (m *MysqlRepository) CountPublicByUserNameLike(userName string) (int64, error) {
+	var count int64
+	err := m.DB.QueryRowx(`
+SELECT count(*)
+FROM dataset ds
+         JOIN user u on ds.user_id = u.id
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND u.name LIKE ?;
+`, util.LikeArg(userName)).Scan(&count)
+	return count, err
+}
+
+func (m *MysqlRepository) CountPublicByTitle(title string) (int64, error) {
+	var count int64
+	err := m.DB.QueryRowx(`
+SELECT count(*)
+FROM dataset ds
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND ds.name = ?;
+`, title).Scan(&count)
+	return count, err
+}
+
+func (m *MysqlRepository) CountPublicByTitleLike(title string) (int64, error) {
+	var count int64
+	err := m.DB.QueryRowx(`
+SELECT count(*)
+FROM dataset ds
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND ds.name LIKE ?;
+`, util.LikeArg(title)).Scan(&count)
+	return count, err
+}
+
+func (m *MysqlRepository) FindAllPublic(userId int64, offset, limit int) ([]Dataset, error) {
+	rows, err := m.DB.Queryx(`
+SELECT ds.id              "id",
+       ds.user_id         "user_id",
+       ds.dataset_no      "dataset_no",
+       ds.url             "url",
+       ds.name            "name",
+       ds.description     "description",
+       ds.public          "public",
+       ds.status          "status",
+       ds.create_time     "create_time",
+       ds.update_time     "update_time",
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library"
+FROM dataset ds
+         LEFT JOIN (SELECT idsl.*
+                    FROM dataset_library idsl
+                    WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+ORDER BY ds.id DESC
+LIMIT ?, ?;
+`, userId, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +120,182 @@ LIMIT ?, ?;`, offset, limit)
 	}
 
 	return dsList, nil
+}
+
+func (m *MysqlRepository) FindAllPublicByUserName(userId int64, userName string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.DB.Queryx(`
+SELECT ds.id              "id",
+       ds.user_id         "user_id",
+       ds.dataset_no      "dataset_no",
+       ds.url             "url",
+       ds.name            "name",
+       ds.description     "description",
+       ds.public          "public",
+       ds.status          "status",
+       ds.create_time     "create_time",
+       ds.update_time     "update_time",
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library"
+FROM dataset ds
+         LEFT JOIN (SELECT idsl.*
+                    FROM dataset_library idsl
+                    WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         JOIN user u on ds.user_id = u.id
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND u.name = ?
+ORDER BY ds.id DESC
+LIMIT ?, ?;
+`, userId, userName, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	dsList := make([]Dataset, 0)
+	for rows.Next() {
+		ds := Dataset{}
+		if err := rows.StructScan(&ds); err != nil {
+			return nil, err
+		}
+
+		dsList = append(dsList, ds)
+	}
+
+	return dsList, nil
+}
+
+func (m *MysqlRepository) FindAllPublicByUserNameLike(userId int64, userName string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.DB.Queryx(`
+SELECT ds.id              "id",
+       ds.user_id         "user_id",
+       ds.dataset_no      "dataset_no",
+       ds.url             "url",
+       ds.name            "name",
+       ds.description     "description",
+       ds.public          "public",
+       ds.status          "status",
+       ds.create_time     "create_time",
+       ds.update_time     "update_time",
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library"
+FROM dataset ds
+         LEFT JOIN (SELECT idsl.*
+                    FROM dataset_library idsl
+                    WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         JOIN user u on ds.user_id = u.id
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND u.name LIKE ?
+ORDER BY ds.id DESC
+LIMIT ?, ?;
+`, userId, util.LikeArg(userName), offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	dsList := make([]Dataset, 0)
+	for rows.Next() {
+		ds := Dataset{}
+		if err := rows.StructScan(&ds); err != nil {
+			return nil, err
+		}
+
+		dsList = append(dsList, ds)
+	}
+
+	return dsList, nil
+}
+
+func (m *MysqlRepository) FindAllPublicByTitle(userId int64, title string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.DB.Queryx(`
+SELECT ds.id              "id",
+       ds.user_id         "user_id",
+       ds.dataset_no      "dataset_no",
+       ds.url             "url",
+       ds.name            "name",
+       ds.description     "description",
+       ds.public          "public",
+       ds.status          "status",
+       ds.create_time     "create_time",
+       ds.update_time     "update_time",
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library"
+FROM dataset ds
+         LEFT JOIN (SELECT idsl.*
+                    FROM dataset_library idsl
+                    WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND ds.name = ?
+ORDER BY ds.id DESC
+LIMIT ?, ?;
+`, userId, title, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	dsList := make([]Dataset, 0)
+	for rows.Next() {
+		ds := Dataset{}
+		if err := rows.StructScan(&ds); err != nil {
+			return nil, err
+		}
+
+		dsList = append(dsList, ds)
+	}
+
+	return dsList, nil
+}
+
+func (m *MysqlRepository) FindAllPublicByTitleLike(userId int64, title string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.DB.Queryx(`
+SELECT ds.id              "id",
+       ds.user_id         "user_id",
+       ds.dataset_no      "dataset_no",
+       ds.url             "url",
+       ds.name            "name",
+       ds.description     "description",
+       ds.public          "public",
+       ds.status          "status",
+       ds.create_time     "create_time",
+       ds.update_time     "update_time",
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library"
+FROM dataset ds
+         LEFT JOIN (SELECT idsl.*
+                    FROM dataset_library idsl
+                    WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+WHERE ds.public = TRUE
+  AND ds.status = 'EXIST'
+  AND ds.name LIKE ?
+ORDER BY ds.id DESC
+LIMIT ?, ?;
+`, userId, util.LikeArg(title), offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	dsList := make([]Dataset, 0)
+	for rows.Next() {
+		ds := Dataset{}
+		if err := rows.StructScan(&ds); err != nil {
+			return nil, err
+		}
+
+		dsList = append(dsList, ds)
+	}
+
+	return dsList, nil
+}
+
+func (m *MysqlRepository) CountByUserId(userId int64) (int64, error) {
+	var count int64
+	err := m.DB.QueryRowx(`SELECT count(*) FROM dataset ds WHERE ds.user_id = ? and ds.status = 'EXIST'`, userId).Scan(&count)
+	return count, err
 }
 
 func (m *MysqlRepository) FindNextDatasetNo(userId int64) (int64, error) {
