@@ -9,7 +9,7 @@ type EpochDbRepository struct {
 func insertEpoch() Option {
 	return optionFunc(func(o *options) {
 		o.queryString = "insert into " +
-			"Epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate) " +
+			"epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate) " +
 			"values (:train_id, :epoch, :acc, :loss, :val_acc, :val_loss, :learning_rate)"
 	})
 }
@@ -34,7 +34,7 @@ func (edr *EpochDbRepository) Find(opts ...Option) (Epoch, error) {
 	ApplyOptions(&options, opts...)
 
 	var epoch Epoch
-	err := edr.DB.Get(&epoch, options.queryString, options.args)
+	err := edr.DB.Get(&epoch, options.queryString, options.args...)
 	if err != nil {
 		return epoch, err
 	}

@@ -7,7 +7,7 @@ import (
 
 type Train struct {
 	Id      int64   `db:"id" json:"id"`
-	Status  bool    `db:"status" json:"status"`
+	Status  string  `db:"status" json:"status"`
 	Acc     float64 `db:"acc" json:"acc"`
 	Loss    float64 `db:"loss" json:"loss"`
 	ValAcc  float64 `db:"val_acc" json:"val_acc"`
@@ -30,6 +30,14 @@ func (t *Train) Bind(r *http.Request) error {
 	}
 
 	return nil
+}
+
+func (t *Train) Update(e Epoch) {
+	t.Acc = e.Acc
+	t.Loss = e.Loss
+	t.ValAcc = e.ValAcc
+	t.ValLoss = e.ValLoss
+	t.Epochs++
 }
 
 type TrainRepository interface {

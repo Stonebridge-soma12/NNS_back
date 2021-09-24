@@ -22,14 +22,14 @@ func ApplyOptions(target *options, opts ...Option) {
 	}
 }
 
-func WithTrainID(trainId int) Option {
+func WithTrainID(trainId int64) Option {
 	return optionFunc(func(o *options) {
 		o.queryString += "where train_id = ?"
 		o.args = append(o.args, trainId)
 	})
 }
 
-func WithId(id int) Option {
+func WithID(id interface{}) Option {
 	return optionFunc(func (o *options) {
 		o.queryString += "where id = ?"
 		o.args = append(o.args, id)

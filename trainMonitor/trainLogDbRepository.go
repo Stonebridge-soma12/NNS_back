@@ -3,8 +3,8 @@ package trainMonitor
 import "github.com/jmoiron/sqlx"
 
 const (
-	defaultSelectTrainLogQuery = "select * from TrainLog "
-	defaultDeleteTrainLogQuery = "delete from TrainLog "
+	defaultSelectTrainLogQuery = "select * from trainLog "
+	defaultDeleteTrainLogQuery = "delete from trainLog "
 )
 
 type TrainLogDbRepository struct {
@@ -13,7 +13,7 @@ type TrainLogDbRepository struct {
 
 func insertLog() Option {
 	return optionFunc(func(o *options) {
-		o.queryString = "insert into TrainLog (train_id, msg) " +
+		o.queryString = "insert into trainLog (train_id, msg) " +
 			"values (:train_id, :msg)"
 	})
 }
@@ -51,7 +51,7 @@ func (ldr *TrainLogDbRepository) Find(opts ...Option) (TrainLog, error) {
 	ApplyOptions(&options, opts...)
 
 	var trainLog TrainLog
-	err := ldr.DB.Get(&trainLog, options.queryString, options.args)
+	err := ldr.DB.Get(&trainLog, options.queryString, options.args...)
 	if err != nil {
 		return TrainLog{}, err
 	}

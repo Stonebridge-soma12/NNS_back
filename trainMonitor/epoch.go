@@ -2,33 +2,32 @@ package trainMonitor
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
 const (
-	defaultSelectEpochQuery = "select * from Epoch "
-	defaultDeleteEpochQuery = "delete from Epoch "
+	defaultSelectEpochQuery = "select * from epoch "
+	defaultDeleteEpochQuery = "delete from epoch "
 )
 
 type Epoch struct {
-	TrainId      string  `db:"train_id" json:"train_id" header:"train_id"`
-	Acc          float64 `db:"acc" json:"acc"`
+	TrainId      int64   `db:"train_id" json:"train_id" header:"train_id"`
+	Acc          float64 `db:"acc" json:"accuracy"`
 	Epoch        int     `db:"epoch" json:"epoch"`
 	Loss         float64 `db:"loss" json:"loss"`
-	ValAcc       float64 `db:"val_acc" json:"val_acc"`
+	ValAcc       float64 `db:"val_acc" json:"val_accuracy"`
 	ValLoss      float64 `db:"val_loss" json:"val_loss"`
 	LearningRate float64 `db:"learning_rate" json:"lr"`
 }
 
 func (e *Epoch) Bind(r *http.Request) error {
-	var epoch []byte
-	_, err := r.Body.Read(epoch)
+	buffer, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
 
-	var res Epoch
-	err = json.Unmarshal(epoch, &res)
+	err = json.Unmarshal(buffer, e)
 	if err != nil {
 		return err
 	}

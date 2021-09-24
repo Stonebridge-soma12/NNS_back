@@ -2,24 +2,24 @@ package trainMonitor
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
 type TrainLog struct {
 	Id      int    `db:"id" json:"id"`
-	TrainId string `db:"train_id" json:"train_id" header:"train_id"`
+	TrainId int64  `db:"train_id" json:"train_id" header:"train_id"`
 	Message string `db:"msg" json:"msg"`
+	Status  int    `db:"status" json:"status"`
 }
 
 func (l *TrainLog) Bind(r *http.Request) error {
-	var log []byte
-	_, err := r.Body.Read(log)
+	log, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
 
-	var res Epoch
-	err = json.Unmarshal(log, &res)
+	err = json.Unmarshal(log, l)
 	if err != nil {
 		return err
 	}

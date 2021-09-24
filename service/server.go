@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"net/http"
+	"nns_back/trainMonitor"
 	"nns_back/ws"
 	"os"
 )
@@ -71,14 +72,19 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", e.GenerateShareKeyHandler).Methods(_Get...)
 
-	// Train monitor
-	authRouter.HandleFunc("/api/epoch", e.NewEpochHandler).Methods(_Post...)
-
 	// web socket
 	hub := ws.NewHub(e.DB)
 
 	//router.HandleFunc("/ws", hub.WsHandler)
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
+
+	// Train log monitor
+	bridge := trainMonitor.NewBridge(e.DB)
+
+	// Train monitor
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/reply", bridge.TrainReplyHandler).Methods(_Post...)
+	authRouter.HandleFunc("/ws/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", bridge.ServeMonitorWs)
 
 
 	router.Use(handlers.CORS(
