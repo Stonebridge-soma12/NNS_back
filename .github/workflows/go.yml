@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -19,11 +20,6 @@ jobs:
       - name: Build
         run: |
           go build -v
-          pwd
-          ls -al
-
-      #     - name: Test
-      #       run: go test -v ./...
 
       - name: Deploy to Server
         uses: easingthemes/ssh-deploy@main
@@ -35,17 +31,14 @@ jobs:
           REMOTE_USER: ${{ secrets.SSH_USERNAME }}
           TARGET: ${{ secrets.REMOTE_TARGET }}
 
-  #  deploy:
-  #    runs-on: ubuntu-latest
-  #    steps:
-  #      - name: executing remote ssh commands using password
-  #        uses: appleboy/ssh-action@master
-  #        with:
-  #          host: ${{ secrets.SSH_HOST }}
-  #          username: ${{ secrets.SSH_USERNAME }}
-  #          key: ${{ secrets.SSH_KEY }}
-  #          port: ${{ secrets.SSH_PORT }}
-  #          script_stop: true
-  #          script: |
-  #            cd nns_back
-  #            git pull github master
+      - name: Executing remote ssh commands using password
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
+          script: |
+            sudo systemctl restart nns
+            sudo systemctl status nns
