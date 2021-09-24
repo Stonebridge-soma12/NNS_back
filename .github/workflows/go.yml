@@ -18,7 +18,7 @@ jobs:
 
       - name: Build
         run: |
-          go build -v ./...
+          go build -v
           pwd
           ls -al
 
