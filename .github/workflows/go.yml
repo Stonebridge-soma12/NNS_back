@@ -7,7 +7,6 @@ on:
 #     branches: [ master ]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
@@ -23,13 +22,27 @@ jobs:
       #     - name: Test
       #       run: go test -v ./...
 
-      - name: executing remote ssh commands using password
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            whoami
-            ls -al
+      - name: Deploy to Server
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_KEY }}
+          ARGS: "-rltgoDzvO --delete"
+          SOURCE: "nns_back"
+          REMOTE_HOST: ${{ secrets.SSH_HOST }}
+          REMOTE_USER: ${{ secrets.SSH_USERNAME }}
+          TARGET: ${{ secrets.REMOTE_TARGET }}
+
+  #  deploy:
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - name: executing remote ssh commands using password
+  #        uses: appleboy/ssh-action@master
+  #        with:
+  #          host: ${{ secrets.SSH_HOST }}
+  #          username: ${{ secrets.SSH_USERNAME }}
+  #          key: ${{ secrets.SSH_KEY }}
+  #          port: ${{ secrets.SSH_PORT }}
+  #          script_stop: true
+  #          script: |
+  #            cd nns_back
+  #            git pull github master
