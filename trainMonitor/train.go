@@ -14,6 +14,7 @@ type Train struct {
 	ValLoss float64 `db:"val_loss" json:"val_loss"`
 	Epochs  int     `db:"epochs" json:"epochs"`
 	Name    string  `db:"name" json:"name"`
+	Url     string  `db:"url" json:"url"` // saved model url
 }
 
 func (t *Train) Bind(r *http.Request) error {

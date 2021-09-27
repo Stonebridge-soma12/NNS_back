@@ -14,8 +14,8 @@ type TrainDbRepository struct {
 func insertTrain() Option {
 	return optionFunc(func(o *options) {
 		o.queryString = "insert into " +
-			"train (status, acc, loss, val_acc, val_loss, epochs, name) " +
-			"values(:status, :acc, :loss, :val_acc, :val_loss, :epochs, :name)"
+			"train (status, acc, loss, val_acc, val_loss, epochs, name, url) " +
+			"values(:status, :acc, :loss, :val_acc, :val_loss, :epochs, :name, :url)"
 	})
 }
 
@@ -24,6 +24,14 @@ func updateTrain() Option {
 		o.queryString = "update train " +
 			"set status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name " +
 			"where id = :id"
+	})
+}
+
+func WithUserIdAndProjectNo(UserId int64, TrainNo int) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += "where user_id = ? and train_id = ?"
+		o.args = append(o.args, UserId)
+		o.args = append(o.args, TrainNo)
 	})
 }
 
