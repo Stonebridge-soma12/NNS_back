@@ -85,7 +85,11 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
 
 	// Train log monitor
-	bridge := trainMonitor.NewBridge(e.DB)
+	bridge := trainMonitor.NewBridge(
+		&trainMonitor.EpochDbRepository{DB: db},
+		&trainMonitor.TrainDbRepository{DB: db},
+		&trainMonitor.TrainLogDbRepository{DB: db},
+	)
 
 	// Train monitor
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)

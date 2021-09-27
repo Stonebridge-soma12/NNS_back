@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/jmoiron/sqlx"
 	"log"
 	"net/http"
 	"strconv"
@@ -29,15 +28,20 @@ var upgrader = websocket.Upgrader{
 
 type Bridge struct {
 	clients []*Client
-	db      *sqlx.DB
+	
+	epochRepository    EpochRepository
+	trainRepository    TrainRepository
+	trainLogRepository TrainLogRepository
 }
 
-func NewBridge(db *sqlx.DB) Bridge {
+func NewBridge(epochRepository EpochRepository, trainRepository TrainRepository, trainLogRepository TrainLogRepository) *Bridge {
 	bridge := Bridge{
-		db: db,
+		epochRepository:    epochRepository,
+		trainRepository:    trainRepository,
+		trainLogRepository: trainLogRepository,
 	}
 
-	return bridge
+	return &bridge
 }
 
 func defaultCheckOrigin(r *http.Request) bool {
@@ -57,15 +61,11 @@ type Client struct {
 	ProjectId int64
 }
 
-func (b Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	tid := getTrainId(r)
 
 	var epoch Epoch
-	epochRepo := EpochDbRepository{
-		DB: b.db,
-	}
-
 	epoch.TrainId = tid
 	err := epoch.Bind(r)
 	if err != nil {
@@ -75,24 +75,20 @@ func (b Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println(epoch)
 
-	err = epochRepo.Insert(epoch)
+	err = b.epochRepository.Insert(epoch)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	trainRepo := TrainDbRepository{
-		DB: b.db,
-	}
-
-	train, err := trainRepo.Find(WithID(epoch.TrainId))
+	train, err := b.trainRepository.Find(WithID(epoch.TrainId))
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	train.Update(epoch)
 
-	err = trainRepo.Update(train)
+	err = b.trainRepository.Update(train)
 	if err != nil {
 		log.Println(err)
 		return
@@ -113,11 +109,8 @@ func (b Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 		TrainId: tid,
 		Message: msg,
 	}
-	logRepo := TrainLogDbRepository{
-		DB: b.db,
-	}
 
-	err = logRepo.Insert(trainLog)
+	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
 		log.Println(err)
 		return
@@ -132,13 +125,10 @@ func (b Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	b.Send(epoch.TrainId, &monitor)
 }
 
-func (b Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	tid := getTrainId(r)
 
 	var trainLog TrainLog
-	trainLogRepo := TrainLogDbRepository {
-		DB: b.db,
-	}
 
 	trainLog.TrainId = tid
 	err := trainLog.Bind(r)
@@ -148,16 +138,12 @@ func (b Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	trainLog.Message = currentTime + ": " + trainLog.Message
-	err = trainLogRepo.Insert(trainLog)
+	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
 		log.Println(err)
 	}
 
-	trainRepo := TrainDbRepository{
-		DB: b.db,
-	}
-
-	train, err := trainRepo.Find(WithID(tid))
+	train, err := b.trainRepository.Find(WithID(tid))
 	if err != nil {
 		log.Println(err)
 		return
@@ -165,14 +151,14 @@ func (b Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 
 	if trainLog.Status == 200 {
 		train.Status = "FIN"
-		err = trainRepo.Update(train)
+		err = b.trainRepository.Update(train)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 	} else if trainLog.Status >= 400 {
 		train.Status = "ERR"
-		err = trainRepo.Update(train)
+		err = b.trainRepository.Update(train)
 		if err != nil {
 			log.Println(err)
 			return
@@ -184,7 +170,7 @@ func (b Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	b.Close(tid)
 }
 
-func (b Bridge) ServeMonitorWs(w http.ResponseWriter, r *http.Request) {
+func (b *Bridge) ServeMonitorWs(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -200,7 +186,7 @@ func (b Bridge) ServeMonitorWs(w http.ResponseWriter, r *http.Request) {
 	go client.writeLoop()
 }
 
-func (b Bridge) Close(tid int64) {
+func (b *Bridge) Close(tid int64) {
 	for i, client := range b.clients {
 		if client.TrainId == tid {
 			b.clients = append(b.clients[:i], b.clients[i+1:]...)
@@ -211,7 +197,7 @@ func (b Bridge) Close(tid int64) {
 	}
 }
 
-func (b Bridge) Send(tid int64, monitor *Monitor) {
+func (b *Bridge) Send(tid int64, monitor *Monitor) {
 	for _, client := range b.clients {
 		if client.TrainId == tid {
 			client.channel <- monitor

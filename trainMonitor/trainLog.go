@@ -30,7 +30,6 @@ func (l *TrainLog) Bind(r *http.Request) error {
 type TrainLogRepository interface {
 	Insert(log TrainLog) error
 	Delete(opts ...Option) error
-	Update(train Train, opts ...Option) error
 	Find(opts ...Option) (TrainLog, error)
 	FindAll(opts ...Option) ([]TrainLog, error)
 }

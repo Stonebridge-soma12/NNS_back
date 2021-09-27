@@ -46,5 +46,5 @@ type TrainRepository interface {
 	Delete(opts ...Option) error
 	Find(opts ...Option) (Train, error)
 	FindAll(opts ...Option) ([]Train, error)
-	Update(opts ...Option) error
+	Update(train Train, opts ...Option) error
 }
