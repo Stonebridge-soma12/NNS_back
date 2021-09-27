@@ -4,6 +4,7 @@ import (
 	"github.com/gorilla/mux"
 	"net/http"
 	"nns_back/trainMonitor"
+	"nns_back/util"
 	"strconv"
 )
 
@@ -26,10 +27,10 @@ func (e Env) GetTrainHistoryList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		e.Logger.Errorw(
 			"failed to conversion interface to int64",
-			"error code", ErrInternalServerError,
+			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"),
 			)
-		writeError(w, http.StatusInternalServerError, ErrInternalServerError)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
@@ -37,11 +38,11 @@ func (e Env) GetTrainHistoryList(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		e.Logger.Warnw(
 			"failed to convert projectNo to int",
-			"error code", ErrInvalidPathParm,
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
 			"input value", mux.Vars(r)["projectNo"],
 			)
-		writeError(w, http.StatusBadRequest, ErrInvalidPathParm)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
@@ -53,11 +54,11 @@ func (e Env) GetTrainHistoryList(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		e.Logger.Warnw(
 			"Can't query with userId or projectNo",
-			"error code", ErrInvalidQueryParm,
+			"error code", util.ErrInvalidQueryParm,
 			"error", err,
 			"input value", userId, projectNo,
 		)
-		writeError(w, http.StatusInternalServerError, ErrInvalidQueryParm)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInvalidQueryParm)
 	}
 
 	resp := GetTrainHistoryListResponseBody{
@@ -76,5 +77,5 @@ func (e Env) GetTrainHistoryList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	writeJson(w, http.StatusOK, resp)
+	util.WriteJson(w, http.StatusOK, resp)
 }

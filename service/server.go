@@ -1,12 +1,18 @@
 package service
 
 import (
+	"context"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"net/http"
+	"nns_back/cloud"
+	"nns_back/dataset"
 	"nns_back/trainMonitor"
 	"nns_back/ws"
 	"os"
@@ -86,7 +92,49 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/reply", bridge.TrainReplyHandler).Methods(_Post...)
 	authRouter.HandleFunc("/ws/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", bridge.ServeMonitorWs)
 
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
 
+	awsAccessKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+	awsSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	awsSessionToken := os.Getenv("AWS_SESSION_TOKEN")
+	//imageBucketName := os.Getenv("IMAGE_BUCKET_NAME")
+	datasetBucketName := os.Getenv("DATASET_BUCKET_NAME")
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(awsAccessKeyId, awsSecretAccessKey, awsSessionToken)),
+		config.WithRegion("ap-northeast-2"),
+	)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	s3Client := s3.NewFromConfig(cfg)
+
+	datasetHandler := &dataset.Handler{
+		Repository: &dataset.MysqlRepository{
+			DB: db,
+		},
+		Logger: logger,
+		AwsS3Client: &cloud.AwsS3Client{
+			Client:     s3Client,
+			BucketName: datasetBucketName,
+		},
+	}
+
+	authRouter.HandleFunc("/api/datasets", datasetHandler.GetList).Methods(_Get...)
+	authRouter.HandleFunc("/api/dataset/file", datasetHandler.UploadFile).Methods(_Post...)
+	authRouter.HandleFunc("/api/dataset", datasetHandler.UpdateFileConfig).Methods(_Put...)
+	authRouter.HandleFunc("/api/dataset/{datasetId:[0-9]+}", datasetHandler.DeleteDataset).Methods(_Delete...)
+
+	authRouter.HandleFunc("/api/dataset/library", datasetHandler.GetLibraryList).Methods(_Get...)
+	authRouter.HandleFunc("/api/dataset/library", datasetHandler.AddNewDatasetToLibrary).Methods(_Post...)
+	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.DeleteDatasetFromLibrary).Methods(_Delete...)
+
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
 	router.Use(handlers.CORS(
 		handlers.AllowedMethods([]string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
 		handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Type", "Content-Language", "Origin"}),

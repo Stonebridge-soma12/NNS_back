@@ -197,7 +197,37 @@ func (r *room) onMessage(data []byte, reader *Client) {
 
 		r.broadcast(data, reader)
 
-	case message.TypeBlockChange:
+	case message.TypeBlockConfigChange:
+		body := message.BlockConfigChange{}
+		if err := json.Unmarshal(data, &body); err != nil {
+			log.Println(err)
+		}
+
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
+		for _, element := range elements {
+			if element.(map[string]interface{})["id"] == body.BlockID {
+				element.(map[string]interface{})["data"].(map[string]interface{})["config"].(map[string]interface{})[body.Config.Name] = body.Config.Value
+				break
+			}
+		}
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
+
+		r.broadcast(data, reader)
+
+	case message.TypeBlockLabelChange:
+		body := message.BlockLabelChange{}
+		if err := json.Unmarshal(data, &body); err != nil {
+			log.Println(err)
+		}
+
+		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
+		for _, element := range elements {
+			if element.(map[string]interface{})["id"] == body.BlockID {
+				element.(map[string]interface{})["data"].(map[string]interface{})["label"] = body.Data
+				break
+			}
+		}
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
 		r.broadcast(data, reader)
 
 	case message.TypeEdgeCreate:
@@ -206,35 +236,16 @@ func (r *room) onMessage(data []byte, reader *Client) {
 			log.Println(err)
 		}
 
-		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
-		elements = append(elements, body.Edge)
-
-		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
-
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = body.Elements
 		r.broadcast(data, reader)
 
-	case message.TypeEdgeRemove:
-		body := message.EdgeRemove{}
+	case message.TypeEdgeUpdate:
+		body := message.EdgeUpdate{}
 		if err := json.Unmarshal(data, &body); err != nil {
 			log.Println(err)
 		}
 
-		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
-		var index int // to remove element index from elements
-		for idx, element := range elements {
-			if element.(map[string]interface{})["id"] == body.EdgeID {
-				index = idx
-				break
-			}
-		}
-
-		// delete element from elements
-		copy(elements[index:], elements[index+1:])
-		elements[len(elements)-1] = nil
-		elements = elements[:len(elements)-1]
-
-		r.projectContent["flowState"].(map[string]interface{})["elements"] = elements
-
+		r.projectContent["flowState"].(map[string]interface{})["elements"] = body.Elements
 		r.broadcast(data, reader)
 
 	default:

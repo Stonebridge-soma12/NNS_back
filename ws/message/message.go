@@ -8,13 +8,14 @@ const (
 
 	TypeCursorMove MessageType = "move_cursor"
 
-	TypeBlockCreate MessageType = "create_block"
-	TypeBlockRemove MessageType = "remove_block"
-	TypeBlockMove   MessageType = "move_block"
-	TypeBlockChange MessageType = "change_block"
+	TypeBlockCreate       MessageType = "create_block"
+	TypeBlockRemove       MessageType = "remove_block"
+	TypeBlockMove         MessageType = "move_block"
+	TypeBlockConfigChange MessageType = "change_block_config"
+	TypeBlockLabelChange  MessageType = "change_block_label"
 
 	TypeEdgeCreate MessageType = "create_edge"
-	TypeEdgeRemove MessageType = "remove_edge"
+	TypeEdgeUpdate MessageType = "update_edge"
 )
 
 const MessageTypeJsonTag = "message"
@@ -83,19 +84,27 @@ type BlockMove struct {
 	Position    Position    `json:"position"`
 }
 
-type BlockChange struct {
+type BlockConfigChange struct {
 	MessageType MessageType `json:"message"`
 	BlockID     string      `json:"blockId"`
-	BlockState  interface{} `json:"blockState"`
+	Config      struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	} `json:"config"`
+}
+
+type BlockLabelChange struct {
+	MessageType MessageType `json:"message"`
+	BlockID     string      `json:"blockId"`
+	Data        string      `json:"data"`
 }
 
 type EdgeCreate struct {
-	MessageType MessageType `json:"message"`
-	EdgeID      string      `json:"edgeId"`
-	Edge        interface{} `json:"edge"`
+	MessageType MessageType   `json:"message"`
+	Elements    []interface{} `json:"elements"`
 }
 
-type EdgeRemove struct {
-	MessageType MessageType `json:"message"`
-	EdgeID      string      `json:"edgeId"`
+type EdgeUpdate struct {
+	MessageType MessageType   `json:"message"`
+	Elements    []interface{} `json:"elements"`
 }
