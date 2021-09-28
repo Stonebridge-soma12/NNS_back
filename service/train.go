@@ -9,10 +9,10 @@ import (
 )
 
 type GetTrainHistoryListResponseBody struct {
-	TrainHistories []GetTrainHistoryListResponseTrainBody `json:"history"`
+	TrainHistories []GetTrainHistoryListResponseHistoryBody `json:"history"`
 }
 
-type GetTrainHistoryListResponseTrainBody struct {
+type GetTrainHistoryListResponseHistoryBody struct {
 	Name    string  `db:"name" json:"name"`
 	Acc     float64 `db:"acc" json:"acc"`
 	Loss    float64 `db:"loss" json:"loss"`
@@ -22,7 +22,7 @@ type GetTrainHistoryListResponseTrainBody struct {
 	Url     string  `db:"url" json:"url"` // saved model url
 }
 
-func (e Env) GetTrainHistoryList(w http.ResponseWriter, r *http.Request) {
+func (e Env) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		e.Logger.Errorw(
@@ -62,20 +62,77 @@ func (e Env) GetTrainHistoryList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := GetTrainHistoryListResponseBody{
-		TrainHistories: make([]GetTrainHistoryListResponseTrainBody, 0, len(trainList)),
+		TrainHistories: make([]GetTrainHistoryListResponseHistoryBody, 0, len(trainList)),
 	}
 
 	for _, history := range trainList {
-		resp.TrainHistories = append(resp.TrainHistories, GetTrainHistoryListResponseTrainBody{
-			Name: history.Name,
-			Acc: history.Acc,
-			Loss: history.Loss,
-			ValAcc: history.ValAcc,
-			ValLoss: history.ValLoss,
-			Epochs: history.Epochs,
-			Url: history.Url,
-		})
+		if history.Status == trainMonitor.TrainStatusFinish || history.Status == trainMonitor.TrainStatusTrain {
+			resp.TrainHistories = append(resp.TrainHistories, GetTrainHistoryListResponseHistoryBody{
+				Name:    history.Name,
+				Acc:     history.Acc,
+				Loss:    history.Loss,
+				ValAcc:  history.ValAcc,
+				ValLoss: history.ValLoss,
+				Epochs:  history.Epochs,
+				Url:     history.Url,
+			})
+		}
 	}
 
 	util.WriteJson(w, http.StatusOK, resp)
+}
+
+func (e Env) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		e.Logger.Errorw(
+			"failed to conversion interface to int64",
+			"error code", util.ErrInternalServerError,
+			"context value", r.Context().Value("userId"),
+		)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		e.Logger.Warnw(
+			"failed to convert projectNo to int",
+			"error code", util.ErrInvalidPathParm,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"],
+		)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
+		return
+	}
+
+	trainNo, err := strconv.Atoi(mux.Vars(r)["trainNo"])
+	if err != nil {
+		e.Logger.Warnw(
+			"failed to convert trainNo to int",
+			"error code", util.ErrInvalidPathParm,
+			"error", err,
+			"input value", mux.Vars(r)["trainNo"],
+		)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
+		return
+	}
+
+	repo := trainMonitor.TrainDbRepository{
+		DB: e.DB,
+	}
+
+	err = repo.Delete(trainMonitor.WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	if err != nil {
+		e.Logger.Warnw(
+			"Can't query with userId or projectNo or trainNo",
+			"error code", util.ErrInvalidQueryParm,
+			"error", err,
+			"input value", userId, projectNo, trainNo,
+		)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInvalidQueryParm)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -27,11 +27,25 @@ func updateTrain() Option {
 	})
 }
 
-func WithUserIdAndProjectNo(UserId int64, TrainNo int) Option {
+func WithUserIdAndProjectNo(userId int64, projectNo int) Option {
 	return optionFunc(func(o *options) {
-		o.queryString += "where user_id = ? and train_id = ?"
-		o.args = append(o.args, UserId)
-		o.args = append(o.args, TrainNo)
+		o.queryString += "where project_id in " +
+			"(select id " +
+			"from project " +
+			"where project_no = ? and user_id = ?);"
+		o.args = append(o.args, userId)
+		o.args = append(o.args, projectNo)
+	})
+}
+
+func WithUserIdAndProjectNoAndTrainNo(userId int64, projectNo int, trainNo int) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += "where train_no = ? and project_id in " +
+			"(select id " +
+			"from project " +
+			"where project_no = ? and user_id = ?);"
+		o.args = append(o.args, userId)
+		o.args = append(o.args, projectNo)
 	})
 }
 
