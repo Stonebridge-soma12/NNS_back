@@ -78,6 +78,10 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", e.GenerateShareKeyHandler).Methods(_Get...)
 
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train", e.GetTrainHistoryListHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", e.DeleteTrainHistoryHandler).Methods(_Delete...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", e.DeleteTrainHistoryHandler).Methods(_Put...)
+
 	// web socket
 	hub := ws.NewHub(e.DB)
 

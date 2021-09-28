@@ -2,6 +2,7 @@ package trainMonitor
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -26,14 +27,12 @@ const (
 )
 
 func (t *Train) Bind(r *http.Request) error {
-	var body []byte
-	_, err := r.Body.Read(body)
+	buffer, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
 
-	var train Train
-	err = json.Unmarshal(body, &train)
+	err = json.Unmarshal(buffer, t)
 	if err != nil {
 		return err
 	}
