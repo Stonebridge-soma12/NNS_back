@@ -1,4 +1,4 @@
-package trainMonitor
+package train
 
 import (
 	"encoding/json"

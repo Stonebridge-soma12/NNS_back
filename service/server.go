@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/dataset"
-	"nns_back/trainMonitor"
+	"nns_back/train"
 	"nns_back/ws"
 	"os"
 )
@@ -78,10 +78,6 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", e.GenerateShareKeyHandler).Methods(_Get...)
 
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train", e.GetTrainHistoryListHandler).Methods(_Get...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", e.DeleteTrainHistoryHandler).Methods(_Delete...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", e.DeleteTrainHistoryHandler).Methods(_Put...)
-
 	// web socket
 	hub := ws.NewHub(e.DB)
 
@@ -89,10 +85,10 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
 
 	// Train log monitor
-	bridge := trainMonitor.NewBridge(
-		&trainMonitor.EpochDbRepository{DB: db},
-		&trainMonitor.TrainDbRepository{DB: db},
-		&trainMonitor.TrainLogDbRepository{DB: db},
+	bridge := train.NewBridge(
+		&train.EpochDbRepository{DB: db},
+		&train.TrainDbRepository{DB: db},
+		&train.TrainLogDbRepository{DB: db},
 	)
 
 	// Train monitor
@@ -109,6 +105,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	awsSessionToken := os.Getenv("AWS_SESSION_TOKEN")
 	//imageBucketName := os.Getenv("IMAGE_BUCKET_NAME")
 	datasetBucketName := os.Getenv("DATASET_BUCKET_NAME")
+	trainedModelBucketName := os.Getenv("TRAINED_MODEL_BUCKET_NAME")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(awsAccessKeyId, awsSecretAccessKey, awsSessionToken)),
@@ -139,6 +136,24 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.GetLibraryList).Methods(_Get...)
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.AddNewDatasetToLibrary).Methods(_Post...)
 	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.DeleteDatasetFromLibrary).Methods(_Delete...)
+
+	// Train Handler
+	trainHandler := train.Handler {
+		Repository:&train.TrainDbRepository{
+			DB: db,
+		},
+		Logger: logger,
+		AwsS3Client: &cloud.AwsS3Client{
+			Client:     s3Client,
+			BucketName: trainedModelBucketName,
+		},
+	}
+
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train", trainHandler.GetTrainHistoryListHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.DeleteTrainHistoryHandler).Methods(_Delete...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.UpdateTrainHistoryHandler).Methods(_Put...)
+
+	authRouter.HandleFunc("/api/model", trainHandler.SaveTrainModelHandler).Methods(_Post...)
 
 	///////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////

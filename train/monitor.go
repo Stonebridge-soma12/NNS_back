@@ -1,4 +1,4 @@
-package trainMonitor
+package train
 
 type Monitor struct {
 	Epoch    Epoch
