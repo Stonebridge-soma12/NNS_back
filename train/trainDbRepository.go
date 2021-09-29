@@ -1,6 +1,9 @@
 package train
 
-import "github.com/jmoiron/sqlx"
+import (
+	"fmt"
+	"github.com/jmoiron/sqlx"
+)
 
 const (
 	defaultSelectTrainQuery = "select * from train "
@@ -22,7 +25,7 @@ func insertTrain() Option {
 func updateTrain() Option {
 	return optionFunc(func(o *options) {
 		o.queryString = "update train " +
-			"set status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name " +
+			"set status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, url=:url " +
 			"where id = :id"
 	})
 }
@@ -32,7 +35,7 @@ func WithUserIdAndProjectNo(userId int64, projectNo int) Option {
 		o.queryString += "where project_id in " +
 			"(select id " +
 			"from project " +
-			"where project_no = ? and user_id = ?);"
+			"where user_id = ? and project_no = ?);"
 		o.args = append(o.args, userId)
 		o.args = append(o.args, projectNo)
 	})
@@ -43,7 +46,8 @@ func WithUserIdAndProjectNoAndTrainNo(userId int64, projectNo int, trainNo int) 
 		o.queryString += "where train_no = ? and project_id in " +
 			"(select id " +
 			"from project " +
-			"where project_no = ? and user_id = ?);"
+			"where user_id = ? and project_no = ?);"
+		o.args = append(o.args, trainNo)
 		o.args = append(o.args, userId)
 		o.args = append(o.args, projectNo)
 	})
@@ -109,7 +113,9 @@ func (tdb *TrainDbRepository) FindAll(opts ...Option) ([]Train, error) {
 	ApplyOptions(&options, opts...)
 
 	var trains []Train
-	rows, err := tdb.DB.Queryx(options.queryString, options.args)
+	fmt.Println(options.queryString)
+	fmt.Println(options.args)
+	rows, err := tdb.DB.Queryx(options.queryString, options.args...)
 	if err != nil {
 		return nil, err
 	}

@@ -176,7 +176,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	type newNameRequestBody struct {
-		name string `json:"name"`
+		Name string `json:"name"`
 	}
 
 	var reqBody newNameRequestBody
@@ -203,7 +203,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	train.Name = reqBody.name
+	train.Name = reqBody.Name
 
 	err = h.Repository.Update(train)
 	if err != nil {
