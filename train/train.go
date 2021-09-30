@@ -50,7 +50,7 @@ func (t *Train) Update(e Epoch) {
 }
 
 type TrainRepository interface {
-	Insert(train Train) error
+	Insert(train Train) (int64, error)
 	Delete(opts ...Option) error
 	Find(opts ...Option) (Train, error)
 	FindAll(opts ...Option) ([]Train, error)

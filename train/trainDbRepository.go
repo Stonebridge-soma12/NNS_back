@@ -53,16 +53,16 @@ func WithUserIdAndProjectNoAndTrainNo(userId int64, projectNo int, trainNo int) 
 	})
 }
 
-func (tdb *TrainDbRepository) Insert(train Train) error {
+func (tdb *TrainDbRepository) Insert(train Train) (int64, error) {
 	options := options{}
 	ApplyOptions(&options, insertTrain())
 
-	_, err := tdb.DB.NamedExec(options.queryString, &train)
+	result, err := tdb.DB.NamedExec(options.queryString, &train)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return result.LastInsertId()
 }
 
 func (tdb *TrainDbRepository) Delete(opts ...Option) error {
