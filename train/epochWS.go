@@ -1,12 +1,12 @@
 package train
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"nns_back/util"
 	"strconv"
 	"time"
 )
@@ -55,10 +55,9 @@ func getTrainId(r *http.Request) int64 {
 }
 
 type Client struct {
-	conn      *websocket.Conn
-	channel   chan *Monitor
-	TrainId   int64
-	ProjectId int64
+	conn    *websocket.Conn
+	send    chan *Monitor
+	TrainId int64
 }
 
 func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
@@ -170,20 +169,47 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	b.Close(tid)
 }
 
-func (b *Bridge) ServeMonitorWs(w http.ResponseWriter, r *http.Request) {
+func (b *Bridge) MonitorWsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	client := &Client{
-		conn:    conn,
-		channel: make(chan *Monitor),
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		log.Println(
+			"failed to conversion interface to int64",
+			"error code", util.ErrInternalServerError,
+			"context value", r.Context().Value("userId"),
+			)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
 	}
+
+	vars := mux.Vars(r)
+	projectNo, _ := strconv.Atoi(vars["projectNo"])
+	trainNo, _ := strconv.Atoi(vars["trainNo"])
+
+	fmt.Println(userId, projectNo, trainNo)
+
+	train, err := b.trainRepository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Println(train)
+
+	fmt.Println("Train id", train.Id)
+
+	client := &Client{
+		conn: conn,
+		send: make(chan *Monitor),
+		TrainId: train.Id,
+	}
+
 	b.clients = append(b.clients, client)
 
-	go client.writeLoop()
+	go client.writePump()
 }
 
 func (b *Bridge) Close(tid int64) {
@@ -191,7 +217,7 @@ func (b *Bridge) Close(tid int64) {
 		if client.TrainId == tid {
 			b.clients = append(b.clients[:i], b.clients[i+1:]...)
 			client.conn.Close()
-			close(client.channel)
+			close(client.send)
 			break
 		}
 	}
@@ -200,16 +226,16 @@ func (b *Bridge) Close(tid int64) {
 func (b *Bridge) Send(tid int64, monitor *Monitor) {
 	for _, client := range b.clients {
 		if client.TrainId == tid {
-			client.channel <- monitor
+			client.send <- monitor
 			break
 		}
 	}
 }
 
-func (c *Client) writeLoop() {
+func (c *Client) writePump() {
 	for {
 		select {
-		case msg, ok := <-c.channel:
+		case msg, ok := <-c.send:
 			if !ok {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
@@ -225,13 +251,5 @@ func (c *Client) writeLoop() {
 }
 
 func (c *Client) write(monitor *Monitor) error {
-	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-	err := encoder.Encode(monitor)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	return c.conn.WriteMessage(websocket.BinaryMessage, buf.Bytes())
+	return c.conn.WriteJSON(monitor)
 }

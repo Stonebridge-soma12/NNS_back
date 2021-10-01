@@ -94,7 +94,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	// Train monitor
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/reply", bridge.TrainReplyHandler).Methods(_Post...)
-	authRouter.HandleFunc("/ws/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", bridge.ServeMonitorWs)
+	authRouter.HandleFunc("/ws/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", bridge.MonitorWsHandler)
 
 	///////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
