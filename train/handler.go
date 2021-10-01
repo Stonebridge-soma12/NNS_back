@@ -1,11 +1,14 @@
 package train
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"net/http"
 	"nns_back/cloud"
+	"nns_back/model"
 	"nns_back/util"
 	"strconv"
 )
@@ -13,6 +16,7 @@ import (
 const saveTrainedModelFormFileKey = "model"
 
 type Handler struct {
+	DB          *sqlx.DB
 	Repository  TrainRepository
 	Logger      *zap.SugaredLogger
 	AwsS3Client *cloud.AwsS3Client
@@ -222,7 +226,106 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: 여기에 학습요청 만들면 됨
 	// 요청시 필요한 내용
-	// User id, train_id
+	// user_id, train_id
+
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		h.Logger.Errorw(
+			"failed to conversion interface to int64",
+			"error code", util.ErrInternalServerError,
+			"context value", r.Context().Value("userId"),
+		)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		h.Logger.Warnw(
+			"failed to convert projectNo to int",
+			"error code", util.ErrInvalidPathParm,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"],
+		)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
+		return
+	}
+
+	project, err := model.SelectProject(h.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	if err != nil {
+		h.Logger.Errorf("failed to select project: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	newTrain := Train{
+		Id:        0,
+		TrainNo:   0,
+		ProjectId: project.Id,
+		Status:    "",
+		Acc:       0,
+		Loss:      0,
+		ValAcc:    0,
+		ValLoss:   0,
+		Epochs:    0,
+		Name:      "",
+		Url:       "",
+	}
+	newTrain.Id, err = h.Repository.Insert(newTrain)
+	if err != nil {
+		h.Logger.Errorf("failed to Insert train: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// http client
+	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		h.Logger.Errorw("failed to interface conversion",
+			"error code", util.ErrInternalServerError,
+			"msg", "defaultRoundTripper not an *http.Transport",
+		)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+	defaultTransport := *defaultTransportPointer // dereference it to get a copy of the struct that the pointer points to
+	defaultTransport.MaxIdleConns = 100
+	defaultTransport.MaxIdleConnsPerHost = 100
+	client := &http.Client{Transport: &defaultTransport}
+
+	// make request body
+	payload := make(map[string]interface{})
+	payload["user_id"] = userId
+	payload["train_id"] = newTrain.Id
+	jsonedPayload, err := json.Marshal(payload)
+	if err != nil {
+		h.Logger.Errorw("failed to json marshal",
+			"error code", util.ErrInternalServerError,
+			"error", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// send request
+	resp, err := client.Post("http://54.180.153.56:8080/fit", "application/json", bytes.NewBuffer(jsonedPayload))
+	if err != nil {
+		h.Logger.Errorw("failed to generate python code",
+			"error code", util.ErrInternalServerError,
+			"error", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	// response
+	if resp.StatusCode != 200 {
+		h.Logger.Warnw("failed to fit",
+			"status code", resp.StatusCode)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) {

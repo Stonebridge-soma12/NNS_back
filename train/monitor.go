@@ -5,4 +5,3 @@ type Monitor struct {
 	TrainLog TrainLog
 }
 
-
