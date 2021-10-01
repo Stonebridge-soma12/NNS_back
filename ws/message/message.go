@@ -16,6 +16,8 @@ const (
 
 	TypeEdgeCreate MessageType = "create_edge"
 	TypeEdgeUpdate MessageType = "update_edge"
+
+	TypeChat MessageType = "chat_msg"
 )
 
 const MessageTypeJsonTag = "message"

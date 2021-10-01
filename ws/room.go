@@ -248,6 +248,9 @@ func (r *room) onMessage(data []byte, reader *Client) {
 		r.projectContent["flowState"].(map[string]interface{})["elements"] = body.Elements
 		r.broadcast(data, reader)
 
+	case message.TypeChat:
+		r.broadcast(data, reader)
+
 	default:
 		// invalid message type
 		r.broadcast(data, reader)
