@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 )
 
 type TrainLog struct {
-	Id      int    `db:"id" json:"id"`
-	TrainId int64  `db:"train_id" json:"train_id" header:"train_id"`
-	Message string `db:"msg" json:"msg"`
-	Status  int    `db:"status" json:"status"`
+	Id         int       `db:"id" json:"id"`
+	TrainId    int64     `db:"train_id" json:"train_id" header:"train_id"`
+	Message    string    `db:"msg" json:"msg"`
+	StatusCode int       `db:"status_code" json:"status_code"`
+	CreateTime time.Time `db:"create_time" json:"create_time"`
+	UpdateTime time.Time `db:"update_time" json:"update_time"`
 }
 
 func (l *TrainLog) Bind(r *http.Request) error {
@@ -25,11 +28,4 @@ func (l *TrainLog) Bind(r *http.Request) error {
 	}
 
 	return nil
-}
-
-type TrainLogRepository interface {
-	Insert(log TrainLog) error
-	Delete(opts ...Option) error
-	Find(opts ...Option) (TrainLog, error)
-	FindAll(opts ...Option) ([]TrainLog, error)
 }

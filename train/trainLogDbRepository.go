@@ -3,8 +3,8 @@ package train
 import "github.com/jmoiron/sqlx"
 
 const (
-	defaultSelectTrainLogQuery = "select * from trainLog "
-	defaultDeleteTrainLogQuery = "delete from trainLog "
+	defaultSelectTrainLogQuery = "SELECT id, train_id, msg, status_code, create_time, update_time FROM train_log "
+	defaultDeleteTrainLogQuery = "DELETE FROM train_log "
 )
 
 type TrainLogDbRepository struct {
