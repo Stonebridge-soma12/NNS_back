@@ -7,7 +7,20 @@ import (
 
 const (
 	defaultSelectTrainQuery = "select * from train "
-	defaultDeleteTrainQuery = "delete from train "
+	defaultDeleteTrainQuery = "update train set status='DEL' "
+	defaultSelectTrain      = `select t.id,
+									   t.status,
+									   t.acc,
+									   t.loss,
+									   t.val_acc,
+									   t.val_loss,
+									   t.name,
+									   t.epochs,
+									   t.project_id,
+									   t.url,
+									   t.train_no
+								from train t
+								join project p on t.project_id = p.id`
 )
 
 type TrainDbRepository struct {
@@ -91,7 +104,7 @@ func (tdb *TrainDbRepository) Update(train Train, opts ...Option) error {
 	return nil
 }
 
-func (tdb *TrainDbRepository) Find(opts ... Option) (Train, error) {
+func (tdb *TrainDbRepository) Find(opts ...Option) (Train, error) {
 	options := options{
 		queryString: defaultSelectTrainQuery,
 	}
@@ -107,7 +120,7 @@ func (tdb *TrainDbRepository) Find(opts ... Option) (Train, error) {
 }
 
 func (tdb *TrainDbRepository) FindAll(opts ...Option) ([]Train, error) {
-	options := options {
+	options := options{
 		queryString: defaultSelectTrainQuery,
 	}
 	ApplyOptions(&options, opts...)
