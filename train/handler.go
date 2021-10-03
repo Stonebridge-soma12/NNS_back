@@ -16,10 +16,10 @@ import (
 const saveTrainedModelFormFileKey = "model"
 
 type Handler struct {
-	DB          *sqlx.DB
-	Repository  TrainRepository
-	Logger      *zap.SugaredLogger
-	AwsS3Client *cloud.AwsS3Client
+	DB              *sqlx.DB
+	TrainRepository TrainRepository
+	Logger          *zap.SugaredLogger
+	AwsS3Client     *cloud.AwsS3Client
 }
 
 type GetTrainHistoryListResponseBody struct {
@@ -60,7 +60,7 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	trainList, err := h.Repository.FindAll(WithUserIdAndProjectNo(userId, projectNo))
+	trainList, err := h.TrainRepository.FindAll(WithUserIdAndProjectNo(userId, projectNo))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo",
@@ -128,7 +128,7 @@ func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = h.Repository.Delete(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	err = h.TrainRepository.Delete(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo or trainNo",
@@ -195,7 +195,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	train, err := h.Repository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	train, err := h.TrainRepository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo or trainNo",
@@ -209,7 +209,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	train.Name = reqBody.Name
 
-	err = h.Repository.Update(train)
+	err = h.TrainRepository.Update(train)
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't update this record",
@@ -223,10 +223,21 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type NewTrainHandlerRequestBody struct {
+}
+
+func (n NewTrainHandlerRequestBody) Validate() error {
+	return nil
+}
+
 func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: 여기에 학습요청 만들면 됨
-	// 요청시 필요한 내용
-	// user_id, train_id
+	body := NewTrainHandlerRequestBody{}
+	if err := util.BindJson(r.Body, &body); err != nil {
+		h.Logger.Warnw("failed to bind json",
+			"error", err)
+		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		return
+	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -238,6 +249,10 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
+
+	// 지금은 각 유저는 한번에 하나의 학습만 가능
+	// 이 유저가 현재 학습중인지 확인
+	h.TrainRepository.FindAll(WithUserId(userId), WithLimit(0, 1))
 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
@@ -258,24 +273,48 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newTrain := Train{
-		Id:        0,
-		TrainNo:   0,
-		ProjectId: project.Id,
-		Status:    "",
-		Acc:       0,
-		Loss:      0,
-		ValAcc:    0,
-		ValLoss:   0,
-		Epochs:    0,
-		Name:      "",
-		Url:       "",
+	nextTrainNo, err := h.TrainRepository.FindNextTrainNo(userId)
+	if err != nil {
+		h.Logger.Errorf("failed to FindNextTrainNo: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
 	}
-	newTrain.Id, err = h.Repository.Insert(newTrain)
+
+	newTrain := Train{
+		//Id:        0,
+		TrainNo:   nextTrainNo,
+		ProjectId: project.Id,
+		Status:    TrainStatusTrain,
+		//Acc:       0,
+		//Loss:      0,
+		//ValAcc:    0,
+		//ValLoss:   0,
+		//Epochs:    0,
+		//Name:      "",
+		//Url:       "",
+	}
+	newTrain.Id, err = h.TrainRepository.Insert(newTrain)
 	if err != nil {
 		h.Logger.Errorf("failed to Insert train: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
+	}
+
+	type RequestBody struct {
+		TrainId int64           `json:"train_id"`
+		UserId  int64           `json:"user_id"`
+		Config  json.RawMessage `json:"config"`
+		Content json.RawMessage `json:"content"`
+		DataSet struct {
+			TrainUri      string `json:"train_uri"`
+			ValidationUri string `json:"validation_uri"`
+			Shuffle       bool   `json:"shuffle"`
+			Label         string `json:"label"`
+			Normalization struct {
+				Usage  bool   `json:"usage"`
+				Method string `json:"method"`
+			} `json:"normalization"`
+		} `json:"data_set"`
 	}
 
 	// http client
@@ -374,7 +413,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	train, err := h.Repository.Find(WithTrainID(reqBody.TrainId))
+	train, err := h.TrainRepository.Find(WithTrainID(reqBody.TrainId))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with train id",
@@ -387,7 +426,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	train.Url = url
-	err = h.Repository.Update(train)
+	err = h.TrainRepository.Update(train)
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't update this record",

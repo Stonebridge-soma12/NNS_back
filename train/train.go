@@ -7,17 +7,18 @@ import (
 )
 
 type Train struct {
-	Id        int64          `db:"id" json:"id"`
-	TrainNo   int            `db:"train_no" json:"train_no"`
-	ProjectId int64          `db:"project_id" json:"project_id"`
-	Status    string         `db:"status" json:"status"`
-	Acc       float64        `db:"acc" json:"acc"`
-	Loss      float64        `db:"loss" json:"loss"`
-	ValAcc    float64        `db:"val_acc" json:"val_acc"`
-	ValLoss   float64        `db:"val_loss" json:"val_loss"`
-	Epochs    int            `db:"epochs" json:"epochs"`
-	Name      string         `db:"name" json:"name"`
-	Url       string `db:"url" json:"url"` // saved model url
+	Id        int64   `db:"id" json:"id"`
+	UserId    int64   `db:"user_id" json:"user_id"`
+	TrainNo   int64     `db:"train_no" json:"train_no"`
+	ProjectId int64   `db:"project_id" json:"project_id"`
+	Status    string  `db:"status" json:"status"`
+	Acc       float64 `db:"acc" json:"acc"`
+	Loss      float64 `db:"loss" json:"loss"`
+	ValAcc    float64 `db:"val_acc" json:"val_acc"`
+	ValLoss   float64 `db:"val_loss" json:"val_loss"`
+	Epochs    int     `db:"epochs" json:"epochs"`
+	Name      string  `db:"name" json:"name"`
+	Url       string  `db:"url" json:"url"` // saved model url
 }
 
 const (
@@ -49,10 +50,3 @@ func (t *Train) Update(e Epoch) {
 	t.Epochs = e.Epoch
 }
 
-type TrainRepository interface {
-	Insert(train Train) (int64, error)
-	Delete(opts ...Option) error
-	Find(opts ...Option) (Train, error)
-	FindAll(opts ...Option) ([]Train, error)
-	Update(train Train, opts ...Option) error
-}

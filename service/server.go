@@ -139,7 +139,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 
 	// Train Handler
 	trainHandler := train.Handler {
-		Repository:&train.TrainDbRepository{
+		TrainRepository:&train.TrainDbRepository{
 			DB: db,
 		},
 		Logger: logger,

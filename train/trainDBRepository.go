@@ -1,12 +1,25 @@
 package train
 
 import (
-	"fmt"
 	"github.com/jmoiron/sqlx"
 )
 
 const (
-	defaultSelectTrainQuery = "select * from train "
+	defaultSelectTrainQuery = `
+SELECT id,
+       user_id,
+       train_no,
+       project_id,
+       acc,
+       loss,
+       val_acc,
+       val_loss,
+       name,
+       epochs,
+       url,
+       status
+FROM train 
+`
 	defaultDeleteTrainQuery = "delete from train "
 )
 
@@ -14,11 +27,36 @@ type TrainDbRepository struct {
 	DB *sqlx.DB
 }
 
+func (tdb *TrainDbRepository) FindNextTrainNo(userId int64) (int64, error) {
+	panic("implement me")
+}
+
 func insertTrain() Option {
 	return optionFunc(func(o *options) {
-		o.queryString = "insert into " +
-			"train (status, acc, loss, val_acc, val_loss, epochs, name, url) " +
-			"values(:status, :acc, :loss, :val_acc, :val_loss, :epochs, :name, :url)"
+		o.queryString = `
+INSERT INTO train (user_id,
+                   train_no,
+                   project_id,
+                   acc,
+                   loss,
+                   val_acc,
+                   val_loss,
+                   name,
+                   epochs,
+                   url,
+                   status)
+VALUES (:user_id,
+        :train_no,
+        :project_id,
+        :acc,
+        :loss,
+        :val_acc,
+        :val_loss,
+        :name,
+        :epochs,
+        :url,
+        :status)
+`
 	})
 }
 
@@ -30,12 +68,19 @@ func updateTrain() Option {
 	})
 }
 
+func WithUserId(userId int64) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += `WHERE user_id = ? `
+		o.args = append(o.args, userId)
+	})
+}
+
 func WithUserIdAndProjectNo(userId int64, projectNo int) Option {
 	return optionFunc(func(o *options) {
 		o.queryString += "where project_id in " +
 			"(select id " +
 			"from project " +
-			"where user_id = ? and project_no = ?);"
+			"where user_id = ? and project_no = ?) "
 		o.args = append(o.args, userId)
 		o.args = append(o.args, projectNo)
 	})
@@ -46,10 +91,17 @@ func WithUserIdAndProjectNoAndTrainNo(userId int64, projectNo int, trainNo int) 
 		o.queryString += "where train_no = ? and project_id in " +
 			"(select id " +
 			"from project " +
-			"where user_id = ? and project_no = ?);"
+			"where user_id = ? and project_no = ?) "
 		o.args = append(o.args, trainNo)
 		o.args = append(o.args, userId)
 		o.args = append(o.args, projectNo)
+	})
+}
+
+func WithLimit(offset, limit int) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += `LIMIT ?, ? `
+		o.args = append(o.args, offset, limit)
 	})
 }
 
@@ -113,8 +165,6 @@ func (tdb *TrainDbRepository) FindAll(opts ...Option) ([]Train, error) {
 	ApplyOptions(&options, opts...)
 
 	var trains []Train
-	fmt.Println(options.queryString)
-	fmt.Println(options.args)
 	rows, err := tdb.DB.Queryx(options.queryString, options.args...)
 	if err != nil {
 		return nil, err
@@ -131,4 +181,15 @@ func (tdb *TrainDbRepository) FindAll(opts ...Option) ([]Train, error) {
 	}
 
 	return trains, nil
+}
+
+func (tdb *TrainDbRepository) GetTrainingCount(userId int64) (int, error) {
+	var count int
+	err := tdb.DB.QueryRowx(`
+SELECT COUNT(*)
+FROM train t
+WHERE t.user_id = ? AND t.status = 'TRAIN';
+`, userId).Scan(&count)
+
+	return count, err
 }
