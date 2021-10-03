@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-const (
-	defaultSelectEpochQuery = "SELECT e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time FROM epoch e "
-	defaultDeleteEpochQuery = "DELETE FROM epoch "
-)
-
 type Epoch struct {
 	TrainId      int64     `db:"train_id" json:"train_id" header:"train_id"`
 	Acc          float64   `db:"acc" json:"accuracy"`
@@ -36,11 +31,4 @@ func (e *Epoch) Bind(r *http.Request) error {
 	}
 
 	return nil
-}
-
-type EpochRepository interface {
-	Insert(epoch Epoch) error
-	Find(opts ...Option) (Epoch, error)
-	Delete(opts ...Option) error
-	FindAll(opts ...Option) ([]Epoch, error)
 }
