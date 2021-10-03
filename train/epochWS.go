@@ -148,14 +148,14 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if trainLog.Status == 200 {
+	if trainLog.StatusCode == 200 {
 		train.Status = TrainStatusFinish
 		err = b.trainRepository.Update(train)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-	} else if trainLog.Status >= 400 {
+	} else if trainLog.StatusCode >= 400 {
 		train.Status = TrainStatusError
 		err = b.trainRepository.Update(train)
 		if err != nil {
