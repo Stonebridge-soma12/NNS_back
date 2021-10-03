@@ -35,3 +35,26 @@ func WithID(id interface{}) Option {
 		o.args = append(o.args, id)
 	})
 }
+
+func WithUserIdAndProjectNo(userId int64, projectNo int) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += "where project_id in " +
+			"(select id " +
+			"from project " +
+			"where user_id = ? and project_no = ?);"
+		o.args = append(o.args, userId)
+		o.args = append(o.args, projectNo)
+	})
+}
+
+func WithUserIdAndProjectNoAndTrainNo(userId int64, projectNo int, trainNo int) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += "where train_no = ? and project_id in " +
+			"(select id " +
+			"from project " +
+			"where user_id = ? and project_no = ?);"
+		o.args = append(o.args, trainNo)
+		o.args = append(o.args, userId)
+		o.args = append(o.args, projectNo)
+	})
+}

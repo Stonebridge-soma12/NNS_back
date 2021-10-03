@@ -6,21 +6,38 @@ import (
 )
 
 const (
-	defaultSelectTrainQuery = "select * from train "
 	defaultDeleteTrainQuery = "update train set status='DEL' "
-	defaultSelectTrain      = `select t.id,
-									   t.status,
-									   t.acc,
-									   t.loss,
-									   t.val_acc,
-									   t.val_loss,
-									   t.name,
-									   t.epochs,
-									   t.project_id,
-									   t.url,
-									   t.train_no
-								from train t
-								join project p on t.project_id = p.id`
+	defaultSelectTrainQuery = `SELECT t.id,
+								   t.user_id,
+								   t.train_no,
+								   t.project_id,
+								   t.acc,
+								   t.loss,
+								   t.val_acc,
+								   t.val_loss,
+								   t.name,
+								   t.epochs,
+								   t.url,
+								   t.status,
+								   tc.id,
+								   tc.train_id,
+								   tc.train_dataset_url,
+								   tc.valid_dataset_url,
+								   tc.dataset_shuffle,
+								   tc.dataset_label,
+								   tc.dataset_normalization_usage,
+								   tc.dataset_normalization_method,
+								   tc.model_content,
+								   tc.model_config,
+								   tc.create_time,
+								   tc.update_time
+							FROM train t
+									 JOIN train_config tc ON t.id = tc.train_id
+									 JOIN project p ON t.project_id = p.id
+							WHERE p.user_id = ?
+							  AND p.project_no = ?
+							  AND t.status != 'DEL'
+							LIMIT ?, ?`
 )
 
 type TrainDbRepository struct {
@@ -30,39 +47,16 @@ type TrainDbRepository struct {
 func insertTrain() Option {
 	return optionFunc(func(o *options) {
 		o.queryString = "insert into " +
-			"train (status, acc, loss, val_acc, val_loss, epochs, name, url) " +
-			"values(:status, :acc, :loss, :val_acc, :val_loss, :epochs, :name, :url)"
+			"train (status, acc, loss, val_acc, val_loss, epochs, name, result_url) " +
+			"values(:status, :acc, :loss, :val_acc, :val_loss, :epochs, :name, :result_url)"
 	})
 }
 
 func updateTrain() Option {
 	return optionFunc(func(o *options) {
 		o.queryString = "update train " +
-			"set status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, url=:url " +
+			"set status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, result_url=:result_url " +
 			"where id = :id"
-	})
-}
-
-func WithUserIdAndProjectNo(userId int64, projectNo int) Option {
-	return optionFunc(func(o *options) {
-		o.queryString += "where project_id in " +
-			"(select id " +
-			"from project " +
-			"where user_id = ? and project_no = ?);"
-		o.args = append(o.args, userId)
-		o.args = append(o.args, projectNo)
-	})
-}
-
-func WithUserIdAndProjectNoAndTrainNo(userId int64, projectNo int, trainNo int) Option {
-	return optionFunc(func(o *options) {
-		o.queryString += "where train_no = ? and project_id in " +
-			"(select id " +
-			"from project " +
-			"where user_id = ? and project_no = ?);"
-		o.args = append(o.args, trainNo)
-		o.args = append(o.args, userId)
-		o.args = append(o.args, projectNo)
 	})
 }
 
