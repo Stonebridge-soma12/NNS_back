@@ -36,7 +36,7 @@ type TrainConfig struct {
 	DatasetShuffle             bool            `db:"dataset_shuffle" json:"dataset_shuffle"`
 	DatasetLabel               string          `db:"dataset_label" json:"dataset_label"`
 	DatasetNormalizationUsage  bool            `db:"dataset_normalization_usage" json:"dataset_normalization_usage"`
-	DatasetNormalizationMethod sql.NullString          `db:"dataset_normalization_method" json:"dataset_normalization_method"`
+	DatasetNormalizationMethod sql.NullString  `db:"dataset_normalization_method" json:"dataset_normalization_method"`
 	ModelContent               json.RawMessage `db:"model_content" json:"model_content"`
 	ModelConfig                json.RawMessage `db:"model_config" json:"model_config"`
 	CreateTime                 time.Time       `db:"create_time" json:"create_time"`
