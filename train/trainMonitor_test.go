@@ -8,11 +8,12 @@ import (
 )
 
 func getDBInfo() string {
-	id := os.Getenv("id")
-	pw := os.Getenv("pw")
-	url := os.Getenv("url")
+	id := os.Getenv("DBUSER")
+	pw := os.Getenv("DBPW")
+	ip := os.Getenv("DBIP")
+	port := os.Getenv("DBPORT")
 
-	return fmt.Sprintf("%s:%s@tcp(%s)/nns?parseTime=true&charset=utf8mb4", id, pw, url)
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/nns?parseTime=true", id, pw, ip, port)
 }
 
 func TestPostEpochHandler(t *testing.T) {

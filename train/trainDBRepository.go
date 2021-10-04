@@ -5,6 +5,32 @@ import (
 )
 
 const (
+	defaultSelectTrainHistoryColumns = `t.id,
+								   t.user_id,
+								   t.train_no,
+								   t.project_id,
+								   t.acc,
+								   t.loss,
+								   t.val_acc,
+								   t.val_loss,
+								   t.name,
+								   t.epochs,
+								   t.url,
+								   t.status,
+								   tc.id,
+								   tc.train_id,
+								   tc.train_dataset_url,
+								   tc.valid_dataset_url,
+								   tc.dataset_shuffle,
+								   tc.dataset_label,
+								   tc.dataset_normalization_usage,
+								   tc.dataset_normalization_method,
+								   tc.model_content,
+								   tc.model_config,
+								   tc.create_time,
+								   tc.update_time`
+	fromTrain = `train t`
+	fromTrainConfig = `train_config tc`
 	defaultDeleteTrainQuery = "update train set status='DEL' "
 	defaultSelectTrainQuery = `SELECT t.id,
 								   t.user_id,
@@ -43,6 +69,13 @@ type TrainDbRepository struct {
 	DB *sqlx.DB
 }
 
+func WithoutTrainStatus(status string) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += `t.status != ? `
+		o.args = append(o.args, status)
+	})
+}
+
 func (tdb *TrainDbRepository) FindNextTrainNo(userId int64) (int64, error) {
 	panic("implement me")
 }
@@ -67,13 +100,6 @@ func WithUserId(userId int64) Option {
 	return optionFunc(func(o *options) {
 		o.queryString += `WHERE user_id = ? `
 		o.args = append(o.args, userId)
-	})
-}
-
-func WithLimit(offset, limit int) Option {
-	return optionFunc(func(o *options) {
-		o.queryString += `LIMIT ?, ? `
-		o.args = append(o.args, offset, limit)
 	})
 }
 

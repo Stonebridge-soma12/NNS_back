@@ -8,10 +8,15 @@ import (
 	"time"
 )
 
+type History struct {
+	Train
+	TrainConfig
+}
+
 type Train struct {
 	Id        int64   `db:"id" json:"id"`
 	UserId    int64   `db:"user_id" json:"user_id"`
-	TrainNo   int64     `db:"train_no" json:"train_no"`
+	TrainNo   int64   `db:"train_no" json:"train_no"`
 	ProjectId int64   `db:"project_id" json:"project_id"`
 	Status    string  `db:"status" json:"status"`
 	Acc       float64 `db:"acc" json:"acc"`
@@ -66,4 +71,3 @@ func (t *Train) Update(e Epoch) {
 	t.ValLoss = e.ValLoss
 	t.Epochs = e.Epoch
 }
-

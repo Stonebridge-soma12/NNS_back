@@ -58,3 +58,24 @@ func WithUserIdAndProjectNoAndTrainNo(userId int64, projectNo int, trainNo int) 
 		o.args = append(o.args, projectNo)
 	})
 }
+
+func WithLimit(offset, limit int) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += `LIMIT ?, ? `
+		o.args = append(o.args, offset, limit)
+	})
+}
+
+func WithProjectUserId(userId int64) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += `p.user_id = ? `
+		o.args = append(o.args, userId)
+	})
+}
+
+func WithProjectNumber(projectNo int) Option {
+	return optionFunc(func(o *options) {
+		o.queryString += `p.project_no = ? `
+		o.args = append(o.args, projectNo)
+	})
+}
