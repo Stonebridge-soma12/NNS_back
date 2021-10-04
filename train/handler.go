@@ -2,9 +2,11 @@ package train
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"net/http"
 	"nns_back/cloud"
@@ -16,6 +18,7 @@ import (
 const saveTrainedModelFormFileKey = "model"
 
 type Handler struct {
+	HttpClient      *http.Client
 	DB              *sqlx.DB
 	TrainRepository TrainRepository
 	EpochRepository EpochRepository
@@ -288,11 +291,27 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 }
 
 type NewTrainHandlerRequestBody struct {
+	Dataset struct {
+		TrainUrl      string `json:"trainUrl"`
+		ValidateUrl   string `json:"validateUrl"`
+		Shuffle       bool   `json:"shuffle"`
+		Label         string `json:"label"`
+		Normalization struct {
+			Usage  bool   `json:"usage"`
+			Method string `json:"method"`
+		} `json:"normalization"`
+	} `json:"dataset"`
 }
 
 func (n NewTrainHandlerRequestBody) Validate() error {
+	if n.Dataset.TrainUrl == "" {
+		return errors.New("trainUrl is required")
+	}
+
 	return nil
 }
+
+const _numberOfTrainingLimit = 1
 
 func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	body := NewTrainHandlerRequestBody{}
@@ -316,7 +335,20 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 지금은 각 유저는 한번에 하나의 학습만 가능
 	// 이 유저가 현재 학습중인지 확인
-	h.TrainRepository.FindAll(WithUserId(userId), WithLimit(0, 1))
+	trainingCount, err := h.TrainRepository.CountCurrentTraining(userId)
+	if err != nil {
+		h.Logger.Errorf("failed to CountCurrentTraining(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if trainingCount >= _numberOfTrainingLimit {
+		// 지금은 새로운 학습 요청을 할 수 없음
+		h.Logger.Warnw("current training count is maximum",
+			"trainingCount", trainingCount)
+		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		return
+	}
 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
@@ -346,6 +378,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 
 	newTrain := Train{
 		//Id:        0,
+		UserId:    userId,
 		TrainNo:   nextTrainNo,
 		ProjectId: project.Id,
 		Status:    TrainStatusTrain,
@@ -355,8 +388,27 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		//ValLoss:   0,
 		//Epochs:    0,
 		//Name:      "",
-		//Url:       "",
+		//ResultUrl: "",
+		TrainConfig: TrainConfig{
+			//Id:              0,
+			//TrainId:         0,
+			TrainDatasetUrl: body.Dataset.TrainUrl,
+			ValidDatasetUrl: sql.NullString{
+				String: body.Dataset.ValidateUrl,
+				Valid:  body.Dataset.ValidateUrl != "",
+			},
+			DatasetShuffle:            body.Dataset.Shuffle,
+			DatasetLabel:              body.Dataset.Label,
+			DatasetNormalizationUsage: body.Dataset.Normalization.Usage,
+			DatasetNormalizationMethod: sql.NullString{
+				String: body.Dataset.Normalization.Method,
+				Valid:  body.Dataset.Normalization.Method != "",
+			},
+			ModelContent: project.Content.Json,
+			ModelConfig:  project.Config.Json,
+		},
 	}
+
 	newTrain.Id, err = h.TrainRepository.Insert(newTrain)
 	if err != nil {
 		h.Logger.Errorf("failed to Insert train: %v", err)
@@ -364,42 +416,44 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type RequestBody struct {
-		TrainId int64           `json:"train_id"`
-		UserId  int64           `json:"user_id"`
-		Config  json.RawMessage `json:"config"`
-		Content json.RawMessage `json:"content"`
-		DataSet struct {
-			TrainUri      string `json:"train_uri"`
-			ValidationUri string `json:"validation_uri"`
-			Shuffle       bool   `json:"shuffle"`
-			Label         string `json:"label"`
-			Normalization struct {
-				Usage  bool   `json:"usage"`
-				Method string `json:"method"`
-			} `json:"normalization"`
-		} `json:"data_set"`
+	type RequestBodyDataSetNormalization struct {
+		Usage  bool   `json:"usage"`
+		Method string `json:"method"`
 	}
 
-	// http client
-	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		h.Logger.Errorw("failed to interface conversion",
-			"error code", util.ErrInternalServerError,
-			"msg", "defaultRoundTripper not an *http.Transport",
-		)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
+	type RequestBodyDataSet struct {
+		TrainUri      string                          `json:"train_uri"`
+		ValidationUri string                          `json:"validation_uri"`
+		Shuffle       bool                            `json:"shuffle"`
+		Label         string                          `json:"label"`
+		Normalization RequestBodyDataSetNormalization `json:"normalization"`
 	}
-	defaultTransport := *defaultTransportPointer // dereference it to get a copy of the struct that the pointer points to
-	defaultTransport.MaxIdleConns = 100
-	defaultTransport.MaxIdleConnsPerHost = 100
-	client := &http.Client{Transport: &defaultTransport}
+
+	type RequestBody struct {
+		TrainId int64              `json:"train_id"`
+		UserId  int64              `json:"user_id"`
+		Config  json.RawMessage    `json:"config"`
+		Content json.RawMessage    `json:"content"`
+		DataSet RequestBodyDataSet `json:"data_set"`
+	}
 
 	// make request body
-	payload := make(map[string]interface{})
-	payload["user_id"] = userId
-	payload["train_id"] = newTrain.Id
+	payload := RequestBody{
+		TrainId: newTrain.Id,
+		UserId:  userId,
+		Config:  project.Config.Json,
+		Content: project.Content.Json,
+		DataSet: RequestBodyDataSet{
+			TrainUri:      body.Dataset.TrainUrl,
+			ValidationUri: body.Dataset.ValidateUrl,
+			Shuffle:       body.Dataset.Shuffle,
+			Label:         body.Dataset.Label,
+			Normalization: RequestBodyDataSetNormalization{
+				Usage:  body.Dataset.Normalization.Usage,
+				Method: body.Dataset.Normalization.Method,
+			},
+		},
+	}
 	jsonedPayload, err := json.Marshal(payload)
 	if err != nil {
 		h.Logger.Errorw("failed to json marshal",
@@ -410,7 +464,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send request
-	resp, err := client.Post("http://54.180.153.56:8080/fit", "application/json", bytes.NewBuffer(jsonedPayload))
+	resp, err := h.HttpClient.Post("http://54.180.153.56:8080/fit", "application/json", bytes.NewBuffer(jsonedPayload))
 	if err != nil {
 		h.Logger.Errorw("failed to generate python code",
 			"error code", util.ErrInternalServerError,

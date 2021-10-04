@@ -77,7 +77,28 @@ func WithoutTrainStatus(status string) Option {
 }
 
 func (tdb *TrainDbRepository) FindNextTrainNo(userId int64) (int64, error) {
-	panic("implement me")
+	var lastTrainNo int64
+	err := tdb.DB.QueryRowx(`
+SELECT t.train_no
+FROM train t
+WHERE t.user_id = ?
+ORDER BY t.train_no DESC
+LIMIT 1;
+`, userId).Scan(&lastTrainNo)
+
+	return lastTrainNo + 1, err
+}
+
+func (tdb *TrainDbRepository) CountCurrentTraining(userId int64) (int, error) {
+	var count int
+	err := tdb.DB.QueryRowx(`
+SELECT COUNT(*)
+FROM train t
+WHERE t.user_id = ?
+  AND t.status = 'TRAIN';
+`, userId).Scan(&count)
+
+	return count, err
 }
 
 func insertTrain() Option {
@@ -104,15 +125,84 @@ func WithUserId(userId int64) Option {
 }
 
 func (tdb *TrainDbRepository) Insert(train Train) (int64, error) {
-	options := options{}
-	ApplyOptions(&options, insertTrain())
+	//options := options{}
+	//ApplyOptions(&options, insertTrain())
+	//
+	//result, err := tdb.DB.NamedExec(options.queryString, &train)
+	//if err != nil {
+	//	return 0, err
+	//}
 
-	result, err := tdb.DB.NamedExec(options.queryString, &train)
+	tx, err := tdb.DB.Beginx()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	result, err := tx.NamedExec(`
+INSERT INTO train (user_id,
+                   train_no,
+                   project_id,
+                   acc,
+                   loss,
+                   val_acc,
+                   val_loss,
+                   name,
+                   epochs,
+                   result_url,
+                   status)
+VALUES (:user_id,
+        :train_no,
+        :project_id,
+        :acc,
+        :loss,
+        :val_acc,
+        :val_loss,
+        :name,
+        :epochs,
+        :result_url,
+        :status);
+`, train)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	insertedTrainId, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	train.TrainConfig.TrainId = insertedTrainId
+
+	_, err = tx.NamedExec(`
+INSERT INTO train_config (train_id,
+                          train_dataset_url,
+                          valid_dataset_url,
+                          dataset_shuffle,
+                          dataset_label,
+                          dataset_normalization_usage,
+                          dataset_normalization_method,
+                          model_content,
+                          model_config)
+VALUES (:train_id,
+        :train_dataset_url,
+        :valid_dataset_url,
+        :dataset_shuffle,
+        :dataset_label,
+        :dataset_normalization_usage,
+        :dataset_normalization_method,
+        :model_content,
+        :model_config);
+`, train.TrainConfig)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return insertedTrainId, nil
 }
 
 func (tdb *TrainDbRepository) Delete(opts ...Option) error {

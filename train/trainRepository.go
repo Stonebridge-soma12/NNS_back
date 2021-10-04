@@ -3,6 +3,7 @@ package train
 
 type TrainRepository interface {
 	FindNextTrainNo(userId int64) (int64, error)
+	CountCurrentTraining(userId int64) (int, error)
 
 	Insert(train Train) (int64, error)
 	Delete(opts ...Option) error

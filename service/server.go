@@ -16,6 +16,7 @@ import (
 	"nns_back/train"
 	"nns_back/ws"
 	"os"
+	"time"
 )
 
 type Env struct {
@@ -137,9 +138,21 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.AddNewDatasetToLibrary).Methods(_Post...)
 	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.DeleteDatasetFromLibrary).Methods(_Delete...)
 
+	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		panic("failed to interface conversion")
+	}
+	defaultTransport := *defaultTransportPointer
+	defaultTransport.MaxIdleConns = 100
+	defaultTransport.MaxIdleConnsPerHost = 100
+
 	// Train Handler
-	trainHandler := train.Handler {
-		TrainRepository:&train.TrainDbRepository{
+	trainHandler := train.Handler{
+		HttpClient: &http.Client{
+			Transport: &defaultTransport,
+			Timeout:   time.Second * 10,
+		},
+		TrainRepository: &train.TrainDbRepository{
 			DB: db,
 		},
 		Logger: logger,

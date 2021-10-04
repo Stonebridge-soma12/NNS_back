@@ -26,6 +26,8 @@ type Train struct {
 	Epochs    int     `db:"epochs" json:"epochs"`
 	Name      string  `db:"name" json:"name"`
 	ResultUrl string  `db:"result_url" json:"result_url"` // saved model url
+
+	TrainConfig TrainConfig
 }
 
 type TrainConfig struct {
