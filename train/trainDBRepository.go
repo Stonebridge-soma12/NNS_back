@@ -15,7 +15,7 @@ const (
 								   t.val_loss,
 								   t.name,
 								   t.epochs,
-								   t.url,
+								   t.result_url,
 								   t.status,
 								   tc.id,
 								   tc.train_id,

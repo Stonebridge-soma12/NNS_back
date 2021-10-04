@@ -11,7 +11,7 @@ create table train
     val_loss float null comment 'val_loss',
     name varchar(45) null comment 'name',
     epochs int default 0 null,
-    url text null,
+    result_url text null,
     status varchar(10) null,
     constraint train_uk_user_id_train_no
         unique (user_id, train_no),

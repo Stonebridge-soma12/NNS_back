@@ -62,12 +62,37 @@ func TestTrainDbRepository_FindAll(t *testing.T) {
 
 	for rows.Next() {
 		var history History
-		err = rows.StructScan(history)
+		err = rows.Scan(
+			&history.Train.Id,
+			&history.Train.UserId,
+			&history.Train.TrainNo,
+			&history.Train.ProjectId,
+			&history.Train.Acc,
+			&history.Train.Loss,
+			&history.Train.ValAcc,
+			&history.Train.ValLoss,
+			&history.Train.Name,
+			&history.Train.Epochs,
+			&history.Train.ResultUrl,
+			&history.Train.Status,
+			&history.TrainConfig.Id,
+			&history.TrainConfig.TrainId,
+			&history.TrainConfig.TrainDatasetUrl,
+			&history.TrainConfig.ValidDatasetUrl,
+			&history.TrainConfig.DatasetShuffle,
+			&history.TrainConfig.DatasetLabel,
+			&history.TrainConfig.DatasetNormalizationUsage,
+			&history.TrainConfig.DatasetNormalizationMethod,
+			&history.TrainConfig.ModelContent,
+			&history.TrainConfig.ModelConfig,
+			&history.TrainConfig.CreateTime,
+			&history.TrainConfig.UpdateTime,
+				)
 		if err != nil {
 			t.Errorf(err.Error())
 		}
 		historyList = append(historyList, history)
 	}
 
-	fmt.Println(historyList)
+	fmt.Printf("%+v\n", historyList)
 }
