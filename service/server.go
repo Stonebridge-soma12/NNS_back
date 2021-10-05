@@ -9,10 +9,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
-	"go.uber.org/zap"
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/dataset"
+	"nns_back/log"
 	"nns_back/train"
 	"nns_back/ws"
 	"os"
@@ -20,7 +20,6 @@ import (
 )
 
 type Env struct {
-	Logger *zap.SugaredLogger
 	DB     *sqlx.DB
 }
 
@@ -31,12 +30,11 @@ var (
 	_Delete = []string{http.MethodDelete, http.MethodOptions}
 )
 
-func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore sessions.Store) {
+func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	e := Env{
-		Logger: logger,
 		DB:     db,
 	}
-	e.Logger.Info("Start server")
+	log.Info("Start server")
 
 	// default router
 	router := mux.NewRouter()
@@ -113,7 +111,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		config.WithRegion("ap-northeast-2"),
 	)
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 
 	s3Client := s3.NewFromConfig(cfg)
@@ -122,7 +120,6 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Repository: &dataset.MysqlRepository{
 			DB: db,
 		},
-		Logger: logger,
 		AwsS3Client: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: datasetBucketName,
@@ -155,7 +152,6 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		TrainRepository: &train.TrainDbRepository{
 			DB: db,
 		},
-		Logger: logger,
 		AwsS3Uploader: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: trainedModelBucketName,
@@ -190,6 +186,6 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Handler: handlers.CombinedLoggingHandler(os.Stderr, router),
 		Addr:    port,
 	}
-	//e.Logger.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
-	e.Logger.Fatal(srv.ListenAndServe())
+	//log.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
+	log.Fatal(srv.ListenAndServe())
 }

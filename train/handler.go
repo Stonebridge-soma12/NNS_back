@@ -7,9 +7,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"net/http"
 	"nns_back/cloud"
+	"nns_back/log"
 	"nns_back/model"
 	"nns_back/util"
 	"strconv"
@@ -22,7 +22,6 @@ type Handler struct {
 	DB              *sqlx.DB
 	TrainRepository TrainRepository
 	EpochRepository EpochRepository
-	Logger          *zap.SugaredLogger
 	AwsS3Uploader   cloud.AwsS3Uploader
 }
 
@@ -43,7 +42,7 @@ type GetTrainHistoryListResponseHistoryBody struct {
 func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		h.Logger.Errorw(
+		log.Errorw(
 			"failed to conversion interface to int64",
 			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"),
@@ -54,7 +53,7 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert projectNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -66,7 +65,7 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 
 	trainList, err := h.TrainRepository.FindAll(WithUserIdAndProjectNo(userId, projectNo))
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't query with userId or projectNo",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
@@ -99,7 +98,7 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		h.Logger.Errorw(
+		log.Errorw(
 			"failed to conversion interface to int64",
 			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"),
@@ -110,7 +109,7 @@ func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Req
 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert projectNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -122,7 +121,7 @@ func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Req
 
 	trainNo, err := strconv.Atoi(mux.Vars(r)["trainNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert trainNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -134,7 +133,7 @@ func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Req
 
 	train, err := h.TrainRepository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't query with userId or projectNo or trainNo",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
@@ -146,7 +145,7 @@ func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Req
 
 	epochs, err := h.EpochRepository.FindAll(WithTrainID(train.Id))
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't query with train id",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
@@ -162,7 +161,7 @@ func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Req
 func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		h.Logger.Errorw(
+		log.Errorw(
 			"failed to conversion interface to int64",
 			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"),
@@ -173,7 +172,7 @@ func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert projectNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -185,7 +184,7 @@ func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	trainNo, err := strconv.Atoi(mux.Vars(r)["trainNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert trainNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -197,7 +196,7 @@ func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	err = h.TrainRepository.Delete(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't query with userId or projectNo or trainNo",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
@@ -213,7 +212,7 @@ func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		h.Logger.Errorw(
+		log.Errorw(
 			"failed to conversion interface to int64",
 			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"),
@@ -224,7 +223,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert projectNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -236,7 +235,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	trainNo, err := strconv.Atoi(mux.Vars(r)["trainNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert trainNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -253,7 +252,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 	var reqBody newNameRequestBody
 	err = json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to bind train",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err,
@@ -264,7 +263,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	train, err := h.TrainRepository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't query with userId or projectNo or trainNo",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
@@ -278,7 +277,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 
 	err = h.TrainRepository.Update(train)
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't update this record",
 			"error code", util.ErrInternalServerError,
 			"error", err,
@@ -316,7 +315,7 @@ const _numberOfTrainingLimit = 1
 func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	body := NewTrainHandlerRequestBody{}
 	if err := util.BindJson(r.Body, &body); err != nil {
-		h.Logger.Warnw("failed to bind json",
+		log.Warnw("failed to bind json",
 			"error", err)
 		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
 		return
@@ -324,7 +323,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		h.Logger.Errorw(
+		log.Errorw(
 			"failed to conversion interface to int64",
 			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"),
@@ -337,14 +336,14 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	// 이 유저가 현재 학습중인지 확인
 	trainingCount, err := h.TrainRepository.CountCurrentTraining(userId)
 	if err != nil {
-		h.Logger.Errorf("failed to CountCurrentTraining(): %v", err)
+		log.Errorf("failed to CountCurrentTraining(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	if trainingCount >= _numberOfTrainingLimit {
 		// 지금은 새로운 학습 요청을 할 수 없음
-		h.Logger.Warnw("current training count is maximum",
+		log.Warnw("current training count is maximum",
 			"trainingCount", trainingCount)
 		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
 		return
@@ -352,7 +351,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to convert projectNo to int",
 			"error code", util.ErrInvalidPathParm,
 			"error", err,
@@ -364,14 +363,14 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 
 	project, err := model.SelectProject(h.DB, model.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
-		h.Logger.Errorf("failed to select project: %v", err)
+		log.Errorf("failed to select project: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
 	nextTrainNo, err := h.TrainRepository.FindNextTrainNo(userId)
 	if err != nil {
-		h.Logger.Errorf("failed to FindNextTrainNo: %v", err)
+		log.Errorf("failed to FindNextTrainNo: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
@@ -411,7 +410,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 
 	newTrain.Id, err = h.TrainRepository.Insert(newTrain)
 	if err != nil {
-		h.Logger.Errorf("failed to Insert train: %v", err)
+		log.Errorf("failed to Insert train: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
@@ -456,7 +455,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonedPayload, err := json.Marshal(payload)
 	if err != nil {
-		h.Logger.Errorw("failed to json marshal",
+		log.Errorw("failed to json marshal",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -466,7 +465,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	// send request
 	resp, err := h.HttpClient.Post("http://54.180.153.56:8080/fit", "application/json", bytes.NewBuffer(jsonedPayload))
 	if err != nil {
-		h.Logger.Errorw("failed to generate python code",
+		log.Errorw("failed to generate python code",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -476,7 +475,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 
 	// response
 	if resp.StatusCode != 200 {
-		h.Logger.Warnw("failed to fit",
+		log.Warnw("failed to fit",
 			"status code", resp.StatusCode)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -494,7 +493,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 	var reqBody saveModelRequestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"failed to bind request body",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err,
@@ -505,7 +504,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 
 	f, fh, err := r.FormFile(saveTrainedModelFormFileKey)
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't find form file with key", saveTrainedModelFormFileKey,
 			"error code", util.ErrBadRequest,
 			"error", err,
@@ -515,14 +514,14 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	defer f.Close()
 
-	h.Logger.Debugw("success to retrieve form file",
+	log.Debugw("success to retrieve form file",
 		"file name", fh.Filename,
 		"file size", fh.Size,
 		"MIME header", fh.Header)
 
 	url, err := h.AwsS3Uploader.UploadFile(f)
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Failed to save model on S3 bucket",
 			"error code", util.ErrInternalServerError,
 			"error", err,
@@ -533,7 +532,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 
 	train, err := h.TrainRepository.Find(WithTrainID(reqBody.TrainId))
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't query with train id",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
@@ -546,7 +545,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 	train.ResultUrl = url
 	err = h.TrainRepository.Update(train)
 	if err != nil {
-		h.Logger.Warnw(
+		log.Warnw(
 			"Can't update this record",
 			"error code", util.ErrInternalServerError,
 			"error", err,

@@ -3,7 +3,7 @@ package ws
 import (
 	"encoding/json"
 	"github.com/tidwall/gjson"
-	"log"
+	"nns_back/log"
 	"nns_back/ws/message"
 )
 
@@ -77,7 +77,7 @@ func (r *room) onRegister(client *Client) {
 	if msg, err := json.Marshal(message.NewUserList(users)); err == nil {
 		r.broadcast(msg, nil)
 	} else {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	// notify current project to recent joined user
@@ -85,7 +85,7 @@ func (r *room) onRegister(client *Client) {
 		message.NewUserCreate(message.User{client.id, client.Name, client.Color}, r.projectContent)); err == nil {
 		r.send(msg, client)
 	} else {
-		log.Println(err)
+		log.Error(err)
 	}
 }
 
@@ -124,7 +124,7 @@ func (r *room) onUnregister(client *Client) {
 	if msg, err := json.Marshal(message.NewUserList(users)); err == nil {
 		r.broadcast(msg, nil)
 	} else {
-		log.Println(err)
+		log.Error(err)
 	}
 }
 
@@ -146,7 +146,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeBlockCreate:
 		body := message.BlockCreate{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
@@ -159,7 +159,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeBlockRemove:
 		body := message.BlockRemove{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
@@ -183,7 +183,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeBlockMove:
 		body := message.BlockMove{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
@@ -200,7 +200,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeBlockConfigChange:
 		body := message.BlockConfigChange{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
@@ -217,7 +217,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeBlockLabelChange:
 		body := message.BlockLabelChange{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
@@ -233,7 +233,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeEdgeCreate:
 		body := message.EdgeCreate{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		r.projectContent["flowState"].(map[string]interface{})["elements"] = body.Elements
@@ -242,7 +242,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 	case message.TypeEdgeUpdate:
 		body := message.EdgeUpdate{}
 		if err := json.Unmarshal(data, &body); err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 
 		r.projectContent["flowState"].(map[string]interface{})["elements"] = body.Elements

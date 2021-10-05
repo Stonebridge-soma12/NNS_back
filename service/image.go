@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"net/http"
+	"nns_back/log"
 	"nns_back/model"
 	"nns_back/util"
 	"os"
@@ -22,7 +23,7 @@ const _uploadImageFormFileKey = "image"
 func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 	// maximum upload of 10 MB files
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		e.Logger.Errorw("failed to specifies a maximum file size.",
+		log.Errorw("failed to specifies a maximum file size.",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -31,7 +32,7 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile(_uploadImageFormFileKey)
 	if err != nil {
-		e.Logger.Errorw("failed to retrieve form file",
+		log.Errorw("failed to retrieve form file",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -39,25 +40,25 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	e.Logger.Debugw("success to retrieve form file",
+	log.Debugw("success to retrieve form file",
 		"file name", header.Filename,
 		"file size", header.Size,
 		"MIME header", header.Header)
 
 	url, err := UploadImage(file, header.Header.Get("Content-Type"))
 	if err != nil {
-		e.Logger.Errorw("failed to upload image to s3",
+		log.Errorw("failed to upload image to s3",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	e.Logger.Debugw(url)
+	log.Debugw(url)
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		e.Logger.Errorw("failed to conversion interface to int64",
+		log.Errorw("failed to conversion interface to int64",
 			"error code", util.ErrInternalServerError,
 			"context value", r.Context().Value("userId"))
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -66,7 +67,7 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 
 	img := model.NewImage(userId, url)
 	if img.Id, err = img.Insert(e.DB); err != nil {
-		e.Logger.Errorw("failed to insert image",
+		log.Errorw("failed to insert image",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)

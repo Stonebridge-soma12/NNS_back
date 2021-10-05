@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
+	"nns_back/log"
 	"nns_back/model"
 	"nns_back/util"
 )
@@ -32,7 +33,7 @@ type LoginHandlerRequestBody struct {
 func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := LoginHandlerRequestBody{}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		a.Logger.Warnw("failed to json decode request body",
+		log.Warnw("failed to json decode request body",
 			"error code", util.ErrInvalidRequestBody,
 			"error", err)
 		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
@@ -43,14 +44,14 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// invalid login id
-			a.Logger.Debugw("ID does not exist",
+			log.Debugw("ID does not exist",
 				"error code", util.ErrInvalidAuthentication,
 				"request login ID", reqBody.ID)
 			util.WriteError(w, http.StatusUnauthorized, util.ErrInvalidAuthentication)
 			return
 		}
 
-		a.Logger.Errorw("failed to select user",
+		log.Errorw("failed to select user",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -61,7 +62,7 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if err := bcrypt.CompareHashAndPassword(user.LoginPw.Bytes, []byte(reqBody.PW)); err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
 			// password mismatch
-			a.Logger.Debugw("password mismatch",
+			log.Debugw("password mismatch",
 				"error code", util.ErrInvalidAuthentication,
 				"loginId", user.LoginId,
 				"loginPw", user.LoginPw)
@@ -70,7 +71,7 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// error
-		a.Logger.Errorw("failed to compare password",
+		log.Errorw("failed to compare password",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -79,7 +80,7 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	session, err := a.SessionStore.Get(r, _sessionCookieName)
 	if err != nil {
-		a.Logger.Errorw("failed to session store get",
+		log.Errorw("failed to session store get",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -92,7 +93,7 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	session.Options.Secure = true
 	session.Options.HttpOnly = true
 	if err := session.Save(r, w); err != nil {
-		a.Logger.Errorw("failed to save session",
+		log.Errorw("failed to save session",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -105,7 +106,7 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (a Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, err := a.SessionStore.Get(r, _sessionCookieName)
 	if err != nil {
-		a.Logger.Errorw("failed to session store get",
+		log.Errorw("failed to session store get",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -117,7 +118,7 @@ func (a Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session.Options.Secure = true
 	session.Options.HttpOnly = true
 	if err := session.Save(r, w); err != nil {
-		a.Logger.Errorw("failed to save session",
+		log.Errorw("failed to save session",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -131,13 +132,13 @@ func (a Auth) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := a.SessionStore.Get(r, _sessionCookieName)
 		if err != nil {
-			a.Logger.Errorw("failed to session store get",
+			log.Errorw("failed to session store get",
 				"error code", util.ErrInternalServerError,
 				"error", err)
 			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 			return
 		}
-		a.Logger.Debug(session.Values)
+		log.Debug(session.Values)
 		if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
 			util.WriteError(w, http.StatusUnauthorized, util.ErrLoginRequired)
 			return
