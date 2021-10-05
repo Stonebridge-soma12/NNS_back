@@ -13,8 +13,8 @@ func (t TestRepo) FindAll(opts ...Option) ([]train.History, error) {
     query := ApplyQueryOptions(opts...)
     query.AddSelect(defaultSelectTrainHistoryColumns).
     AddFrom(`train t`).
-    AddJoin(`train_config tc ON t.id = tc.train_id`).
-    AddJoin(`project p ON t.project_id = p.id`)
+        AddJoin(`train_config tc ON t.id = tc.train_id`).
+        AddJoin(`project p ON t.project_id = p.id`)
     
     err := query.Apply()
     if err != nil {
