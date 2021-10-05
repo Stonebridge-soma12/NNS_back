@@ -47,14 +47,14 @@ const (
 func TestQuery_Apply(t *testing.T) {
 	expectString := `SELECT user_id, project_no FROM train t WHERE t.id = ? ORDER BY user_id DESC LIMIT ?, ?`
 
-	var q Query
+	var q Builder
 	q.AddSelect("user_id, project_no").
 		AddFrom("train t").
 		AddWhere("t.id = ?", 2).
 		AddLimit(0, 0).
 		AddOrder("user_id DESC")
 
-	err := q.Apply()
+	err := q.Build()
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -77,7 +77,7 @@ func (t TestRepo) FindAll(opts ...Option) ([]train.History, error) {
 		AddJoin(`train_config tc ON t.id = tc.train_id`).
 		AddJoin(`project p ON t.project_id = p.id`)
 
-	err := query.Apply()
+	err := query.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (t TestRepo) FindAll(opts ...Option) ([]train.History, error) {
 }
 
 func WithTrainId(trainId int64) Option {
-	return OptionFunc(func (q *Query) {
+	return OptionFunc(func (q *Builder) {
 		q.AddWhere("train_id = ?", trainId)
 	})
 }

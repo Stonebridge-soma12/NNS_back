@@ -13,6 +13,7 @@ import (
 	"nns_back/model"
 	"nns_back/util"
 	"strconv"
+	"time"
 )
 
 const saveTrainedModelFormFileKey = "model"
@@ -31,13 +32,24 @@ type GetTrainHistoryListResponseBody struct {
 }
 
 type GetTrainHistoryListResponseHistoryBody struct {
-	Name    string  `db:"name" json:"name"`
-	Acc     float64 `db:"acc" json:"acc"`
-	Loss    float64 `db:"loss" json:"loss"`
-	ValAcc  float64 `db:"val_acc" json:"val_acc"`
-	ValLoss float64 `db:"val_loss" json:"val_loss"`
-	Epochs  int     `db:"epochs" json:"epochs"`
-	Url     string  `db:"url" json:"url"` // saved model url
+	Name                       string          `json:"name"`
+	Status                     string          `json:"status"`
+	Acc                        float64         `json:"acc"`
+	Loss                       float64         `json:"loss"`
+	ValAcc                     float64         `json:"valAcc"`
+	ValLoss                    float64         `json:"valLoss"`
+	Epochs                     int             `json:"epochs"`
+	ResultUrl                  string          `json:"resultUrl"` // saved model url
+	TrainDatasetUrl            string          `json:"trainDatasetUrl"`
+	ValidDatasetUrl            sql.NullString  `json:"validDatasetUrl"`
+	DatasetShuffle             bool            `json:"datasetShuffle"`
+	DatasetLabel               string          `json:"datasetLabel"`
+	DatasetNormalizationUsage  bool            `json:"datasetNormalizationUsage"`
+	DatasetNormalizationMethod sql.NullString  `json:"datasetNormalizationMethod"`
+	ModelContent               json.RawMessage `json:"modelContent"`
+	ModelConfig                json.RawMessage `json:"modelConfig"`
+	CreateTime                 time.Time       `json:"createTime"`
+	UpdateTime                 time.Time       `json:"updateTime"`
 }
 
 func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +76,7 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	trainList, err := h.TrainRepository.FindAll(WithUserIdAndProjectNo(userId, projectNo))
+	trainList, err := h.TrainRepository.FindAll(WithUserId(userId), WithProjectNo(projectNo), WithoutDel(), WithPagenation(0, 100))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo",
@@ -82,13 +94,24 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 	for _, history := range trainList {
 		if history.Status == TrainStatusFinish || history.Status == TrainStatusTrain {
 			resp.TrainHistories = append(resp.TrainHistories, GetTrainHistoryListResponseHistoryBody{
-				Name:    history.Name,
-				Acc:     history.Acc,
-				Loss:    history.Loss,
-				ValAcc:  history.ValAcc,
+				Name: history.Name,
+				Status: history.Status,
+				Acc: history.Acc,
+				Loss: history.Loss,
+				ValAcc: history.ValAcc,
 				ValLoss: history.ValLoss,
-				Epochs:  history.Epochs,
-				Url:     history.ResultUrl,
+				Epochs: history.Epochs,
+				ResultUrl: history.ResultUrl,// saved model url
+				TrainDatasetUrl: history.TrainConfig.TrainDatasetUrl,
+				ValidDatasetUrl: history.TrainConfig.ValidDatasetUrl,
+				DatasetShuffle: history.TrainConfig.DatasetShuffle,
+				DatasetLabel: history.TrainConfig.DatasetLabel,
+				DatasetNormalizationUsage: history.TrainConfig.DatasetNormalizationUsage,
+				DatasetNormalizationMethod: history.TrainConfig.DatasetNormalizationMethod,
+				ModelContent: history.TrainConfig.ModelContent,
+				ModelConfig: history.TrainConfig.ModelConfig,
+				CreateTime: history.TrainConfig.CreateTime,
+				UpdateTime: history.TrainConfig.UpdateTime,
 			})
 		}
 	}

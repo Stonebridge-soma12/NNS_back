@@ -15,7 +15,7 @@ func TestTrainDbRepository_FindAll(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	var q query.Query
+	var q query.Builder
 	q.AddSelect(defaultSelectTrainHistoryColumns).
 		AddFrom(`train t`).
 		AddJoin(`train_config tc ON t.id = tc.train_id`).
@@ -25,7 +25,7 @@ func TestTrainDbRepository_FindAll(t *testing.T) {
 		AddWhere(`t.status != ?`, "'DEL'").
 		AddLimit(0, 100)
 
-	err = q.Apply()
+	err = q.Build()
 	if err != nil {
 		t.Errorf(err.Error())
 	}

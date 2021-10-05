@@ -2,7 +2,7 @@ package query
 
 import "fmt"
 
-type Query struct {
+type Builder struct {
 	selects     []string
 	from        []string
 	join        []string
@@ -21,46 +21,46 @@ const (
 	ErrEmptyFrom   = "must specified selecting table"
 )
 
-func (q *Query) AddSelect(columns string) *Query {
+func (q *Builder) AddSelect(columns string) *Builder {
 	q.selects = append(q.selects, columns)
 
 	return q
 }
 
-func (q *Query) AddFrom(table string) *Query {
+func (q *Builder) AddFrom(table string) *Builder {
 	q.from = append(q.from, table)
 
 	return q
 }
 
-func (q *Query) AddJoin(join string, args ...interface{}) *Query {
+func (q *Builder) AddJoin(join string, args ...interface{}) *Builder {
 	q.join = append(q.join, join)
 	q.joinArgs = append(q.joinArgs, args...)
 
 	return q
 }
 
-func (q *Query) AddWhere(where string, args ...interface{}) *Query {
+func (q *Builder) AddWhere(where string, args ...interface{}) *Builder {
 	q.where = append(q.where, where)
 	q.whereArgs = append(q.whereArgs, args...)
 
 	return q
 }
 
-func (q *Query) AddOrder(order string) *Query {
+func (q *Builder) AddOrder(order string) *Builder {
 	q.order = append(q.order, order)
 
 	return q
 }
 
-func (q *Query) AddLimit(offset, limit int) *Query {
+func (q *Builder) AddLimit(offset, limit int) *Builder {
 	q.limit = "LIMIT ?, ?"
 	q.limitArgs = append(q.limitArgs, offset, limit)
 
 	return q
 }
 
-func (q *Query) Apply() error {
+func (q *Builder) Build() error {
 	q.QueryString = ""
 	if len(q.selects) <= 0 {
 		return fmt.Errorf(ErrEmptySelect)
@@ -80,8 +80,8 @@ func (q *Query) Apply() error {
 		q.QueryString += cols + " "
 	}
 
-	if len(q.join) > 0 {
-		q.Args = append(q.Args, q.joinArgs)
+	if len(q.joinArgs) > 0 {
+		q.Args = append(q.Args, q.joinArgs...)
 	}
 	for _, cols := range q.join {
 		q.QueryString += "JOIN " + cols + " "
@@ -89,7 +89,10 @@ func (q *Query) Apply() error {
 
 	if len(q.where) > 0 {
 		q.QueryString += "WHERE "
-		q.Args = append(q.Args, q.whereArgs)
+
+		if len(q.whereArgs) > 0 {
+			q.Args = append(q.Args, q.whereArgs...)
+		}
 	}
 	for i, cols := range q.where {
 		if i != 0 {
@@ -111,7 +114,7 @@ func (q *Query) Apply() error {
 	}
 
 	if q.limit != "" {
-		q.Args = append(q.Args, q.limitArgs)
+		q.Args = append(q.Args, q.limitArgs...)
 	}
 	q.QueryString += q.limit
 

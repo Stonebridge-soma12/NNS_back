@@ -2,7 +2,7 @@
 - 직접 쓰려고만든 쿼리빌더
 - SELECT, FROM, WHERE, JOIN 등 Add함수로 등록 후 사용하면 됨.
 - Option 기능도 직접 구현해서 사용. (아래 WithTrainId)참조
-
+- 반드시 필요한 부분을 모두 Add 후에 Apply 할 것.
 ### Example
 ```go
 type TestRepo struct {

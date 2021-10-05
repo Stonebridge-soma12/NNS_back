@@ -1,17 +1,17 @@
 package query
 
 type Option interface {
-	apply(*Query)
+	apply(*Builder)
 }
 
-type OptionFunc func(*Query)
+type OptionFunc func(*Builder)
 
-func (o OptionFunc) apply(q *Query) {
+func (o OptionFunc) apply(q *Builder) {
 	o(q)
 }
 
-func ApplyQueryOptions(opts ...Option) *Query {
-	var result *Query
+func ApplyQueryOptions(opts ...Option) *Builder {
+	result := &Builder{}
 
 	for _, o := range opts {
 		o.apply(result)

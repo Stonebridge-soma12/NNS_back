@@ -2,6 +2,7 @@ package train
 
 import (
 	"github.com/jmoiron/sqlx"
+	"nns_back/query"
 )
 
 const (
@@ -29,8 +30,6 @@ const (
 								   tc.model_config,
 								   tc.create_time,
 								   tc.update_time`
-	fromTrain = `train t`
-	fromTrainConfig = `train_config tc`
 	defaultDeleteTrainQuery = "update train set status='DEL' "
 	defaultSelectTrainQuery = `SELECT t.id,
 								   t.user_id,
@@ -64,6 +63,36 @@ const (
 							  AND t.status != 'DEL'
 							LIMIT ?, ?`
 )
+
+func WithTrainId(trainId int64) query.Option {
+	return query.OptionFunc(func (b *query.Builder) {
+		b.AddWhere("train_id = ?", trainId)
+	})
+}
+
+func WithUserId(userId int64) query.Option {
+	return query.OptionFunc(func (b *query.Builder) {
+		b.AddWhere("p.user_id = ?", userId)
+	})
+}
+
+func WithProjectNo(projectNo int) query.Option {
+	return query.OptionFunc(func (b *query.Builder) {
+		b.AddWhere("p.project_no = ?", projectNo)
+	})
+}
+
+func WithoutDel() query.Option {
+	return query.OptionFunc(func (b *query.Builder) {
+		b.AddWhere("t.status != 'DEL'")
+	})
+}
+
+func WithPagenation(offset, limit int) query.Option {
+	return query.OptionFunc(func (b *query.Builder) {
+		b.AddLimit(offset, limit)
+	})
+}
 
 type TrainDbRepository struct {
 	DB *sqlx.DB
@@ -114,13 +143,6 @@ func updateTrain() Option {
 		o.queryString = "update train " +
 			"set status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, result_url=:result_url " +
 			"where id = :id"
-	})
-}
-
-func WithUserId(userId int64) Option {
-	return optionFunc(func(o *options) {
-		o.queryString += `WHERE user_id = ? `
-		o.args = append(o.args, userId)
 	})
 }
 
@@ -246,29 +268,60 @@ func (tdb *TrainDbRepository) Find(opts ...Option) (Train, error) {
 	return train, err
 }
 
-func (tdb *TrainDbRepository) FindAll(opts ...Option) ([]Train, error) {
-	options := options{
-		queryString: defaultSelectTrainQuery,
-	}
-	ApplyOptions(&options, opts...)
+func (tdb *TrainDbRepository) FindAll(opts ...query.Option) ([]Train, error) {
+	q := query.ApplyQueryOptions(opts...)
+	q.AddSelect(defaultSelectTrainHistoryColumns).
+		AddFrom("train t").
+		AddJoin("train_config tc ON t.id = tc.train_id").
+		AddJoin("project p ON t.project_id = p.id")
 
-	var trains []Train
-	rows, err := tdb.DB.Queryx(options.queryString, options.args...)
+	err := q.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := tdb.DB.Queryx(q.QueryString, q.Args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	var trainList []Train
 	for rows.Next() {
 		var train Train
-		err := rows.StructScan(&train)
+		err = rows.Scan(
+			&train.Id,
+			&train.UserId,
+			&train.TrainNo,
+			&train.ProjectId,
+			&train.Acc,
+			&train.Loss,
+			&train.ValAcc,
+			&train.ValLoss,
+			&train.Name,
+			&train.Epochs,
+			&train.ResultUrl,
+			&train.Status,
+			&train.TrainConfig.Id,
+			&train.TrainConfig.TrainId,
+			&train.TrainConfig.TrainDatasetUrl,
+			&train.TrainConfig.ValidDatasetUrl,
+			&train.TrainConfig.DatasetShuffle,
+			&train.TrainConfig.DatasetLabel,
+			&train.TrainConfig.DatasetNormalizationUsage,
+			&train.TrainConfig.DatasetNormalizationMethod,
+			&train.TrainConfig.ModelContent,
+			&train.TrainConfig.ModelConfig,
+			&train.TrainConfig.CreateTime,
+			&train.TrainConfig.UpdateTime,
+		)
 		if err != nil {
 			return nil, err
 		}
-		trains = append(trains, train)
+		trainList = append(trainList, train)
 	}
 
-	return trains, nil
+	return trainList, nil
 }
 
 func (tdb *TrainDbRepository) GetTrainingCount(userId int64) (int, error) {
