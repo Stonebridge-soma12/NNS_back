@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"github.com/google/uuid"
@@ -9,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
+	"nns_back/externalAPI"
 	"nns_back/log"
 	"nns_back/model"
 	"nns_back/util"
@@ -718,36 +718,14 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// http client
-	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		log.Errorw("failed to interface conversion",
-			"error code", util.ErrInternalServerError,
-			"msg", "defaultRoundTripper not an *http.Transport",
-		)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-	defaultTransport := *defaultTransportPointer // dereference it to get a copy of the struct that the pointer points to
-	defaultTransport.MaxIdleConns = 100
-	defaultTransport.MaxIdleConnsPerHost = 100
-	client := &http.Client{Transport: &defaultTransport}
-
 	// make request body
-	payload := make(map[string]interface{})
-	payload["content"] = project.Content.Json
-	payload["config"] = project.Config.Json
-	jsonedPayload, err := json.Marshal(payload)
-	if err != nil {
-		log.Errorw("failed to json marshal",
-			"error code", util.ErrInternalServerError,
-			"error", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
+	payload := externalAPI.CodeConvertRequestBody{
+		Content: project.Content.Json,
+		Config:  project.Config.Json,
 	}
 
 	// send request
-	resp, err := client.Post("http://54.180.153.56:8080/make-python", "application/json", bytes.NewBuffer(jsonedPayload))
+	resp, err := e.CodeConverter.CodeConvert(payload)
 	if err != nil {
 		log.Errorw("failed to generate python code",
 			"error code", util.ErrInternalServerError,
