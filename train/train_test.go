@@ -95,3 +95,23 @@ func TestHandler_DeleteTrainHistoryHandler(t *testing.T) {
 		t.Errorf("Result is not same")
 	}
 }
+
+func TestTrain_Update(t *testing.T) {
+	const expected = "UPDATE train SET status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, result_url=:result_url WHERE id=:id"
+
+	builder := query.ApplyQueryOptions()
+	builder.AddUpdate("train", "status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, result_url=:result_url").
+		AddWhere("id=:id")
+
+	err := builder.Build()
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	fmt.Println(strings.TrimSuffix(builder.QueryString, " "))
+	fmt.Println(strings.TrimSuffix(expected, " "))
+
+	if strings.TrimSuffix(builder.QueryString, " ") != strings.TrimSuffix(expected, " ") {
+		t.Errorf("Result is not same")
+	}
+}

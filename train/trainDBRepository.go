@@ -65,47 +65,46 @@ const (
 )
 
 func WithTrainId(trainId int64) query.Option {
-	return query.OptionFunc(func (b *query.Builder) {
+	return query.OptionFunc(func(b *query.Builder) {
 		b.AddWhere("train_id = ?", trainId)
 	})
 }
 
 func WithProjectUserId(userId int64) query.Option {
-	return query.OptionFunc(func (b *query.Builder) {
+	return query.OptionFunc(func(b *query.Builder) {
 		b.AddWhere("project.user_id = ?", userId)
 	})
 }
 
 func WithProjectProjectNo(projectNo int) query.Option {
-	return query.OptionFunc(func (b *query.Builder) {
+	return query.OptionFunc(func(b *query.Builder) {
 		b.AddWhere("project.project_no = ?", projectNo)
 	})
 }
 
 func WithoutTrainStatusDel() query.Option {
-	return query.OptionFunc(func (b *query.Builder) {
+	return query.OptionFunc(func(b *query.Builder) {
 		b.AddWhere("t.status != 'DEL'")
 	})
 }
 
 func WithPagenation(offset, limit int) query.Option {
-	return query.OptionFunc(func (b *query.Builder) {
+	return query.OptionFunc(func(b *query.Builder) {
 		b.AddLimit(offset, limit)
 	})
 }
 
 func WithTrainTrainNo(trainNo int) query.Option {
-	return query.OptionFunc(func (b *query.Builder) {
+	return query.OptionFunc(func(b *query.Builder) {
 		b.AddWhere("train.train_no = ?", trainNo)
 	})
 }
 
 func WithTrainUserId(userId int) query.Option {
-	return query.OptionFunc(func (b *query.Builder) {
+	return query.OptionFunc(func(b *query.Builder) {
 		b.AddWhere("train.user_id = ?", userId)
 	})
 }
-
 
 type TrainDbRepository struct {
 	DB *sqlx.DB
@@ -251,11 +250,27 @@ func (tdb *TrainDbRepository) Delete(opts ...query.Option) error {
 	return nil
 }
 
-func (tdb *TrainDbRepository) Update(train Train, opts ...Option) error {
-	options := options{}
-	ApplyOptions(&options, updateTrain())
+func (tdb *TrainDbRepository) Update(train Train, opts ...query.Option) error {
+	builder := query.ApplyQueryOptions()
+	builder.AddUpdate(
+		"train",
+		"status = ?, acc = ?, loss = ?, val_acc = ?, val_loss = ?, epochs = ?, name = ?, result_url = ?",
+		train.Status,
+		train.Acc,
+		train.Loss,
+		train.ValAcc,
+		train.ValLoss,
+		train.Epochs,
+		train.Name,
+		train.ResultUrl,
+	).AddWhere("id = ?", train.Id)
 
-	_, err := tdb.DB.NamedExec(options.queryString, &train)
+	err := builder.Build()
+	if err != nil {
+		return nil
+	}
+
+	_, err = tdb.DB.NamedExec(builder.QueryString, &train)
 	if err != nil {
 		return err
 	}
