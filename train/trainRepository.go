@@ -8,7 +8,7 @@ type TrainRepository interface {
 	CountCurrentTraining(userId int64) (int, error)
 
 	Insert(train Train) (int64, error)
-	Delete(opts ...Option) error
+	Delete(opts ...query.Option) error
 	Find(opts ...Option) (Train, error)
 	FindAll(opts ...query.Option) ([]Train, error)
 	Update(train Train, opts ...Option) error

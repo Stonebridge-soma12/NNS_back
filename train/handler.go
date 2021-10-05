@@ -218,7 +218,7 @@ func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = h.TrainRepository.Delete(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	err = h.TrainRepository.Delete(WithProjectUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo or trainNo",
