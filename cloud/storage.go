@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+//go:generate mockery --name AwsS3Uploader --inpackage
+type AwsS3Uploader interface {
+	UploadFile(file multipart.File, options ...Option) (url string, err error)
+	UploadBytes(file []byte, options ...Option) (url string, err error)
+}
+
 type AwsS3Client struct {
 	Client     *s3.Client
 	BucketName string
@@ -39,12 +45,12 @@ func WithExtension(extension string) Option {
 	return optionFunc(func(input *s3.PutObjectInput) {
 		filename := *(input.Key)
 		splitedFilename := strings.Split(filename, ".")
-		splitedFilename[len(splitedFilename) - 1] = extension
+		splitedFilename[len(splitedFilename)-1] = extension
 		input.Key = aws.String(strings.Join(splitedFilename, "."))
 	})
 }
 
-func (c *AwsS3Client) Put(file multipart.File, options ...Option) (url string, err error) {
+func (c *AwsS3Client) UploadFile(file multipart.File, options ...Option) (url string, err error) {
 	mType, err := mimetype.DetectReader(file)
 	if err != nil {
 		return "", err
@@ -54,40 +60,32 @@ func (c *AwsS3Client) Put(file multipart.File, options ...Option) (url string, e
 		return "", err
 	}
 
-	filename := generateFileName(mType.Extension())
-
 	input := &s3.PutObjectInput{
-		Bucket: aws.String(c.BucketName),
-		Key: aws.String(filename),
-		Body: file,
+		Bucket:      aws.String(c.BucketName),
+		Key:         aws.String(generateFileName(mType.Extension())),
+		Body:        file,
 		ContentType: aws.String(mType.String()),
-		ACL: types.ObjectCannedACLPublicRead,
+		ACL:         types.ObjectCannedACLPublicRead,
 	}
 
-	for _, option := range options {
-		option.apply(input)
-	}
-
-	if _, err := c.Client.PutObject(context.TODO(), input); err != nil {
-		return "", err
-	}
-
-	return getS3ObjectUrl(c.BucketName, filename), nil
+	return c.put(input, options...)
 }
 
-func (c *AwsS3Client) PutBytes(file []byte, options ...Option) (url string, err error) {
+func (c *AwsS3Client) UploadBytes(file []byte, options ...Option) (url string, err error) {
 	mType := mimetype.Detect(file)
 
-	filename := generateFileName(mType.Extension())
-
 	input := &s3.PutObjectInput{
-		Bucket: aws.String(c.BucketName),
-		Key: aws.String(filename),
-		Body: bytes.NewReader(file),
+		Bucket:      aws.String(c.BucketName),
+		Key:         aws.String(generateFileName(mType.Extension())),
+		Body:        bytes.NewReader(file),
 		ContentType: aws.String(mType.String()),
-		ACL: types.ObjectCannedACLPublicRead,
+		ACL:         types.ObjectCannedACLPublicRead,
 	}
 
+	return c.put(input, options...)
+}
+
+func (c *AwsS3Client) put(input *s3.PutObjectInput, options ...Option) (url string, err error) {
 	for _, option := range options {
 		option.apply(input)
 	}

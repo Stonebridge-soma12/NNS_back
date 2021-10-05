@@ -41,7 +41,7 @@ func TestAwsS3Client_Put(t *testing.T) {
 	file, err := os.Open(testFileName)
 	assertions.Nil(err)
 
-	objectUrl, err := awsS3Client.Put(file)
+	objectUrl, err := awsS3Client.UploadFile(file)
 	assertions.Nil(err)
 
 	t.Logf("object url : %s", objectUrl)
@@ -94,7 +94,7 @@ func TestAwsS3Client_PutBytes(t *testing.T) {
 	fileBytes, err := io.ReadAll(file)
 	assertions.Nil(err)
 
-	objectUrl, err := awsS3Client.PutBytes(fileBytes)
+	objectUrl, err := awsS3Client.UploadBytes(fileBytes)
 	assertions.Nil(err)
 
 	t.Logf("object url : %s", objectUrl)

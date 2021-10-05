@@ -6,8 +6,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/jmoiron/sqlx"
-	"log"
 	"net/http"
+	"nns_back/log"
 	"nns_back/model"
 )
 
@@ -27,14 +27,15 @@ func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		log.Println("failed to conversion interface to int64")
+
+		log.Error("failed to conversion interface to int64")
 		http.Error(w, "failed to conversion interface to int64", http.StatusInternalServerError)
 		return
 	}
 
 	user, err := model.SelectUser(h.DB, model.ClassifiedById(userId))
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		http.Error(w, "failed to select user", http.StatusInternalServerError)
 		return
 	}
@@ -42,11 +43,11 @@ func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
 	project, err := model.SelectProject(h.DB, model.ClassifiedByShareKey(key))
 	if err != nil {
 		if err != sql.ErrNoRows {
-			log.Println(err)
+			log.Error(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		} else {
-			log.Println(err)
+			log.Error(err)
 			http.Error(w, "failed to select project", http.StatusInternalServerError)
 			return
 		}
@@ -54,7 +55,7 @@ func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
 
 	projectContent := make(map[string]interface{})
 	if err := json.Unmarshal(project.Content.Json, &projectContent); err != nil {
-		log.Println(err)
+		log.Error(err)
 		http.Error(w, "failed to unmarshal project content", http.StatusInternalServerError)
 		return
 	}
@@ -84,7 +85,7 @@ var upgrader = websocket.Upgrader{
 func serveWs(room *room, clientName string, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 	client := &Client{Name: clientName, room: room, conn: conn, send: make(chan []byte, 256)}
