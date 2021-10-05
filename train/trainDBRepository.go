@@ -70,19 +70,19 @@ func WithTrainId(trainId int64) query.Option {
 	})
 }
 
-func WithUserId(userId int64) query.Option {
+func WithProjectUserId(userId int64) query.Option {
 	return query.OptionFunc(func (b *query.Builder) {
-		b.AddWhere("p.user_id = ?", userId)
+		b.AddWhere("project.user_id = ?", userId)
 	})
 }
 
-func WithProjectNo(projectNo int) query.Option {
+func WithProjectProjectNo(projectNo int) query.Option {
 	return query.OptionFunc(func (b *query.Builder) {
-		b.AddWhere("p.project_no = ?", projectNo)
+		b.AddWhere("project.project_no = ?", projectNo)
 	})
 }
 
-func WithoutDel() query.Option {
+func WithoutTrainStatusDel() query.Option {
 	return query.OptionFunc(func (b *query.Builder) {
 		b.AddWhere("t.status != 'DEL'")
 	})
@@ -94,15 +94,21 @@ func WithPagenation(offset, limit int) query.Option {
 	})
 }
 
-type TrainDbRepository struct {
-	DB *sqlx.DB
+func WithTrainTrainNo(trainNo int) query.Option {
+	return query.OptionFunc(func (b *query.Builder) {
+		b.AddWhere("train.train_no = ?", trainNo)
+	})
 }
 
-func WithoutTrainStatus(status string) Option {
-	return optionFunc(func(o *options) {
-		o.queryString += `t.status != ? `
-		o.args = append(o.args, status)
+func WithTrainUserId(userId int) query.Option {
+	return query.OptionFunc(func (b *query.Builder) {
+		b.AddWhere("train.user_id = ?", userId)
 	})
+}
+
+
+type TrainDbRepository struct {
+	DB *sqlx.DB
 }
 
 func (tdb *TrainDbRepository) FindNextTrainNo(userId int64) (int64, error) {
@@ -228,13 +234,9 @@ VALUES (:train_id,
 }
 
 func (tdb *TrainDbRepository) Delete(opts ...query.Option) error {
-	options := options{
-		queryString: defaultDeleteTrainQuery,
-	}
-	query.ApplyQueryOptions(opts...)
-
 	builder := query.ApplyQueryOptions(opts...)
-	builder.AddDelete()
+	builder.AddUpdate("train t", "t.status = ?", TrainStatusDelete).
+		AddJoin("project p on train.project_id = project.id")
 
 	err := builder.Build()
 	if err != nil {

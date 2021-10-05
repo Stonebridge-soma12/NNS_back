@@ -50,6 +50,11 @@ const (
 	TrainStatusTrain  = "TRAIN"
 	TrainStatusError  = "ERR"
 	TrainStatusDelete = "DEL"
+
+	TrainStatusFinishDB = "'FIN'"
+	TrainStatusTrainDB  = "'TRAIN'"
+	TrainStatusErrorDB  = "'ERR'"
+	TrainStatusDeleteDB = "'DEL'"
 )
 
 func (t *Train) Bind(r *http.Request) error {

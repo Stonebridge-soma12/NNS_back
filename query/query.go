@@ -101,27 +101,18 @@ func (b *Builder) Build() error {
 		for _, cols := range b.selects {
 			b.QueryString += cols + " "
 		}
+		if len(b.from) <= 0 {
+			return fmt.Errorf(ErrEmptyFrom)
+		}
 	case actionUpdate:
 		b.QueryString += "UPDATE " + b.updateTable + " "
-		for i, cols := range b.update {
-			b.QueryString += cols
-			if i < len(b.update)-1 {
-				b.QueryString += ", "
-			} else {
-				b.QueryString += " "
-			}
+	}
+
+	if len(b.from) > 0 {
+		b.QueryString += "FROM "
+		for _, cols := range b.from {
+			b.QueryString += cols + " "
 		}
-
-		b.Args = append(b.Args, b.updateArgs...)
-	}
-
-	if len(b.from) <= 0 {
-		return fmt.Errorf(ErrEmptyFrom)
-	}
-
-	b.QueryString += "FROM "
-	for _, cols := range b.from {
-		b.QueryString += cols + " "
 	}
 
 	if len(b.joinArgs) > 0 {
@@ -129,6 +120,22 @@ func (b *Builder) Build() error {
 	}
 	for _, cols := range b.join {
 		b.QueryString += "JOIN " + cols + " "
+	}
+
+	if len(b.update) > 0 {
+		b.QueryString += "SET "
+	}
+	for i, cols := range b.update {
+		b.QueryString += cols
+		if i < len(b.update)-1 {
+			b.QueryString += ", "
+		} else {
+			b.QueryString += " "
+		}
+	}
+
+	if len(b.updateArgs) > 0 {
+		b.Args = append(b.Args, b.updateArgs...)
 	}
 
 	if len(b.where) > 0 {

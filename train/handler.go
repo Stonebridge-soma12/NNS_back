@@ -76,7 +76,7 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	trainList, err := h.TrainRepository.FindAll(WithUserId(userId), WithProjectNo(projectNo), WithoutDel(), WithPagenation(0, 100))
+	trainList, err := h.TrainRepository.FindAll(WithProjectUserId(userId), WithProjectProjectNo(projectNo), WithoutTrainStatusDel(), WithPagenation(0, 100))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo",

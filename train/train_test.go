@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"nns_back/query"
+	"strings"
 	"testing"
 )
 
@@ -73,4 +74,24 @@ func TestTrainDbRepository_FindAll(t *testing.T) {
 	}
 
 	fmt.Printf("%+v\n", historyList)
+}
+
+func TestHandler_DeleteTrainHistoryHandler(t *testing.T) {
+	const expected = "UPDATE train t JOIN project p on train.project_id = project.id SET t.status = ? WHERE project.user_id = ? AND project.project_no = ? AND train.train_no = ?"
+
+	builder := query.ApplyQueryOptions(WithProjectUserId(2), WithProjectProjectNo(1), WithTrainTrainNo(1))
+	builder.AddUpdate("train t", "t.status = ?", TrainStatusDelete).
+		AddJoin("project p on train.project_id = project.id")
+
+	err := builder.Build()
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	fmt.Println(strings.TrimSuffix(builder.QueryString, " "))
+	fmt.Println(strings.TrimSuffix(expected, " "))
+
+	if strings.TrimSuffix(builder.QueryString, " ") != strings.TrimSuffix(expected, " ") {
+		t.Errorf("Result is not same")
+	}
 }
