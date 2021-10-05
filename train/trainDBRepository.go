@@ -227,13 +227,14 @@ VALUES (:train_id,
 	return insertedTrainId, nil
 }
 
-func (tdb *TrainDbRepository) Delete(opts ...Option) error {
-	options := options{
-		queryString: defaultDeleteTrainQuery,
+func (tdb *TrainDbRepository) Delete(opts ...query.Option) error {
+	builder := query.ApplyQueryOptions(opts...)
+	err := builder.Build()
+	if err != nil {
+		return err
 	}
-	ApplyOptions(&options, opts...)
 
-	_, err := tdb.DB.Exec(options.queryString, options.args)
+	_, err = tdb.DB.Exec(builder.QueryString, builder.Args...)
 	if err != nil {
 		return err
 	}
@@ -269,18 +270,18 @@ func (tdb *TrainDbRepository) Find(opts ...Option) (Train, error) {
 }
 
 func (tdb *TrainDbRepository) FindAll(opts ...query.Option) ([]Train, error) {
-	q := query.ApplyQueryOptions(opts...)
-	q.AddSelect(defaultSelectTrainHistoryColumns).
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddSelect(defaultSelectTrainHistoryColumns).
 		AddFrom("train t").
 		AddJoin("train_config tc ON t.id = tc.train_id").
 		AddJoin("project p ON t.project_id = p.id")
 
-	err := q.Build()
+	err := builder.Build()
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := tdb.DB.Queryx(q.QueryString, q.Args...)
+	rows, err := tdb.DB.Queryx(builder.QueryString, builder.Args...)
 	if err != nil {
 		return nil, err
 	}

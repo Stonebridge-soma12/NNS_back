@@ -3,6 +3,7 @@ package query
 import "fmt"
 
 type Builder struct {
+	delete      bool
 	selects     []string
 	from        []string
 	join        []string
@@ -20,6 +21,12 @@ const (
 	ErrEmptySelect = "must specified selecting columns"
 	ErrEmptyFrom   = "must specified selecting table"
 )
+
+func (q *Builder) AddDelete() *Builder {
+	q.delete = true
+
+	return q
+}
 
 func (q *Builder) AddSelect(columns string) *Builder {
 	q.selects = append(q.selects, columns)
@@ -62,17 +69,21 @@ func (q *Builder) AddLimit(offset, limit int) *Builder {
 
 func (q *Builder) Build() error {
 	q.QueryString = ""
-	if len(q.selects) <= 0 {
-		return fmt.Errorf(ErrEmptySelect)
+
+	if q.delete {
+		q.QueryString += "DELETE "
+	} else {
+		if len(q.selects) <= 0 {
+			return fmt.Errorf(ErrEmptySelect)
+		}
+		q.QueryString += "SELECT "
+		for _, cols := range q.selects {
+			q.QueryString += cols + " "
+		}
 	}
 
 	if len(q.from) <= 0 {
 		return fmt.Errorf(ErrEmptyFrom)
-	}
-
-	q.QueryString += "SELECT "
-	for _, cols := range q.selects {
-		q.QueryString += cols + " "
 	}
 
 	q.QueryString += "FROM "
@@ -106,7 +117,7 @@ func (q *Builder) Build() error {
 	}
 	for i, cols := range q.order {
 		q.QueryString += cols
-		if i != len(q.where) - 1 {
+		if i != len(q.where)-1 {
 			q.QueryString += ", "
 		} else {
 			q.QueryString += " "
