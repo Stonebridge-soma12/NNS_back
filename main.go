@@ -5,7 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"nns_back/log"
 	"nns_back/service"
 	"os"
 	"time"
@@ -13,16 +13,7 @@ import (
 
 func main() {
 	// set logger
-	config := zap.NewProductionConfig()
-	config.DisableStacktrace = true
-	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
-	config.Level.SetLevel(zap.DebugLevel)
-	logger, err := config.Build()
-	if err != nil {
-		panic(err)
-	}
-	defer logger.Sync()
-	sugar := logger.Sugar()
+	log.Init(zap.DebugLevel)
 
 	// set db connection
 	dbUser := os.Getenv("DBUSER")
@@ -32,7 +23,7 @@ func main() {
 	db, err := sqlx.Open("mysql",
 		fmt.Sprintf("%s:%s@tcp(%s:%s)/nns?parseTime=true", dbUser, dbPW, dbIP, dbPort))
 	if err != nil {
-		sugar.Fatal("failed to db open", err)
+		log.Fatal("failed to db open", err)
 	}
 	defer db.Close()
 
@@ -41,5 +32,5 @@ func main() {
 	db.SetMaxIdleConns(10)
 
 	// start server
-	service.Start(":8080", sugar, db, service.SetSessionStore([]byte(os.Getenv("SESSKEY"))))
+	service.Start(":8080", db, service.SetSessionStore([]byte(os.Getenv("SESSKEY"))))
 }
