@@ -4,13 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/externalAPI"
 	"nns_back/log"
-	"nns_back/model"
+	"nns_back/repository"
 	"nns_back/util"
 	"strconv"
 )
@@ -18,11 +17,11 @@ import (
 const saveTrainedModelFormFileKey = "model"
 
 type Handler struct {
-	Fitter          externalAPI.Fitter
-	DB              *sqlx.DB
-	TrainRepository TrainRepository
-	EpochRepository EpochRepository
-	AwsS3Uploader   cloud.AwsS3Uploader
+	Fitter            externalAPI.Fitter
+	ProjectRepository repository.ProjectRepository
+	TrainRepository   TrainRepository
+	EpochRepository   EpochRepository
+	AwsS3Uploader     cloud.AwsS3Uploader
 }
 
 type GetTrainHistoryListResponseBody struct {
@@ -361,7 +360,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := model.SelectProject(h.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		log.Errorf("failed to select project: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)

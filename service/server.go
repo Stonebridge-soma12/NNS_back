@@ -14,6 +14,7 @@ import (
 	"nns_back/dataset"
 	"nns_back/externalAPI"
 	"nns_back/log"
+	"nns_back/repository"
 	"nns_back/train"
 	"nns_back/ws"
 	"os"
@@ -153,7 +154,8 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 
 	// Train Handler
 	trainHandler := train.Handler{
-		Fitter: externalAPI.NewFitter(httpClient),
+		Fitter:            externalAPI.NewFitter(httpClient),
+		ProjectRepository: repository.NewProjectMysqlRepository(db),
 		TrainRepository: &train.TrainDbRepository{
 			DB: db,
 		},
