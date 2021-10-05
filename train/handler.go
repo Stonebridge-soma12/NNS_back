@@ -23,7 +23,7 @@ type Handler struct {
 	TrainRepository TrainRepository
 	EpochRepository EpochRepository
 	Logger          *zap.SugaredLogger
-	AwsS3Client     *cloud.AwsS3Client
+	AwsS3Uploader   cloud.AwsS3Uploader
 }
 
 type GetTrainHistoryListResponseBody struct {
@@ -520,7 +520,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		"file size", fh.Size,
 		"MIME header", fh.Header)
 
-	url, err := h.AwsS3Client.UploadFile(f)
+	url, err := h.AwsS3Uploader.UploadFile(f)
 	if err != nil {
 		h.Logger.Warnw(
 			"Failed to save model on S3 bucket",

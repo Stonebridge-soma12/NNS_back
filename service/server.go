@@ -156,7 +156,7 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 			DB: db,
 		},
 		Logger: logger,
-		AwsS3Client: &cloud.AwsS3Client{
+		AwsS3Uploader: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: trainedModelBucketName,
 		},
