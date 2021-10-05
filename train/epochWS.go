@@ -80,7 +80,7 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	train, err := b.trainRepository.Find(WithID(epoch.TrainId))
+	train, err := b.trainRepository.Find(WithTrainId(epoch.TrainId))
 	if err != nil {
 		log.Println(err)
 		return
@@ -142,7 +142,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	train, err := b.trainRepository.Find(WithID(tid))
+	train, err := b.trainRepository.Find(WithTrainId(tid))
 	if err != nil {
 		log.Println(err)
 		return
@@ -193,7 +193,7 @@ func (b *Bridge) MonitorWsHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println(userId, projectNo, trainNo)
 
-	train, err := b.trainRepository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	train, err := b.trainRepository.Find(WithTrainUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
 	if err != nil {
 		log.Println(err)
 	}

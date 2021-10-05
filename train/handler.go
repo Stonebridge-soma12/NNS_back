@@ -155,7 +155,7 @@ func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	train, err := h.TrainRepository.Find(WithTrainUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo or trainNo",
@@ -285,7 +285,7 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithUserIdAndProjectNoAndTrainNo(userId, projectNo, trainNo))
+	train, err := h.TrainRepository.Find(WithTrainUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with userId or projectNo or trainNo",
@@ -554,7 +554,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithTrainID(reqBody.TrainId))
+	train, err := h.TrainRepository.Find(WithTrainId(reqBody.TrainId))
 	if err != nil {
 		h.Logger.Warnw(
 			"Can't query with train id",

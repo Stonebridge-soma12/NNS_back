@@ -66,19 +66,19 @@ const (
 
 func WithTrainId(trainId int64) query.Option {
 	return query.OptionFunc(func(b *query.Builder) {
-		b.AddWhere("train_id = ?", trainId)
+		b.AddWhere("train.train_id = ?", trainId)
 	})
 }
 
 func WithProjectUserId(userId int64) query.Option {
 	return query.OptionFunc(func(b *query.Builder) {
-		b.AddWhere("project.user_id = ?", userId)
+		b.AddWhere("p.user_id = ?", userId)
 	})
 }
 
 func WithProjectProjectNo(projectNo int) query.Option {
 	return query.OptionFunc(func(b *query.Builder) {
-		b.AddWhere("project.project_no = ?", projectNo)
+		b.AddWhere("p.project_no = ?", projectNo)
 	})
 }
 
@@ -96,13 +96,13 @@ func WithPagenation(offset, limit int) query.Option {
 
 func WithTrainTrainNo(trainNo int) query.Option {
 	return query.OptionFunc(func(b *query.Builder) {
-		b.AddWhere("train.train_no = ?", trainNo)
+		b.AddWhere("t.train_no = ?", trainNo)
 	})
 }
 
-func WithTrainUserId(userId int) query.Option {
+func WithTrainUserId(userId int64) query.Option {
 	return query.OptionFunc(func(b *query.Builder) {
-		b.AddWhere("train.user_id = ?", userId)
+		b.AddWhere("t.user_id = ?", userId)
 	})
 }
 
@@ -270,7 +270,7 @@ func (tdb *TrainDbRepository) Update(train Train, opts ...query.Option) error {
 		return nil
 	}
 
-	_, err = tdb.DB.NamedExec(builder.QueryString, &train)
+	_, err = tdb.DB.Exec(builder.QueryString, builder.Args...)
 	if err != nil {
 		return err
 	}
@@ -278,34 +278,64 @@ func (tdb *TrainDbRepository) Update(train Train, opts ...query.Option) error {
 	return nil
 }
 
-func (tdb *TrainDbRepository) Find(opts ...Option) (Train, error) {
-	options := options{
-		queryString: defaultSelectTrainQuery,
-	}
-	ApplyOptions(&options, opts...)
-
-	var train Train
-	err := tdb.DB.Get(&train, options.queryString, options.args...)
-	if err != nil {
-		return Train{}, err
-	}
-
-	return train, err
-}
-
-func (tdb *TrainDbRepository) FindAll(opts ...query.Option) ([]Train, error) {
-	q := query.ApplyQueryOptions(opts...)
-	q.AddSelect(defaultSelectTrainHistoryColumns).
+func (tdb *TrainDbRepository) Find(opts ...query.Option) (Train, error) {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddSelect(defaultSelectTrainHistoryColumns).
 		AddFrom("train t").
 		AddJoin("train_config tc ON t.id = tc.train_id").
 		AddJoin("project p ON t.project_id = p.id")
 
-	err := q.Build()
+	builder.Build()
+
+	var train Train
+	row := tdb.DB.QueryRow(builder.QueryString, builder.Args...)
+	err := row.Scan(
+		&train.Id,
+		&train.UserId,
+		&train.TrainNo,
+		&train.ProjectId,
+		&train.Acc,
+		&train.Loss,
+		&train.ValAcc,
+		&train.ValLoss,
+		&train.Name,
+		&train.Epochs,
+		&train.ResultUrl,
+		&train.Status,
+		&train.TrainConfig.Id,
+		&train.TrainConfig.TrainId,
+		&train.TrainConfig.TrainDatasetUrl,
+		&train.TrainConfig.ValidDatasetUrl,
+		&train.TrainConfig.DatasetShuffle,
+		&train.TrainConfig.DatasetLabel,
+		&train.TrainConfig.DatasetNormalizationUsage,
+		&train.TrainConfig.DatasetNormalizationMethod,
+		&train.TrainConfig.ModelContent,
+		&train.TrainConfig.ModelConfig,
+		&train.TrainConfig.CreateTime,
+		&train.TrainConfig.UpdateTime,
+	)
+
+	if err != nil {
+		return train, err
+	}
+
+	return train, nil
+}
+
+func (tdb *TrainDbRepository) FindAll(opts ...query.Option) ([]Train, error) {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddSelect(defaultSelectTrainHistoryColumns).
+		AddFrom("train t").
+		AddJoin("train_config tc ON t.id = tc.train_id").
+		AddJoin("project p ON t.project_id = p.id")
+
+	err := builder.Build()
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := tdb.DB.Queryx(q.QueryString, q.Args...)
+	rows, err := tdb.DB.Queryx(builder.QueryString, builder.Args...)
 	if err != nil {
 		return nil, err
 	}

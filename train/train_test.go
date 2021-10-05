@@ -97,11 +97,23 @@ func TestHandler_DeleteTrainHistoryHandler(t *testing.T) {
 }
 
 func TestTrain_Update(t *testing.T) {
-	const expected = "UPDATE train SET status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, result_url=:result_url WHERE id=:id"
+	const expected = "UPDATE train SET status = ?, acc = ?, loss = ?, val_acc = ?, val_loss = ?, epochs = ?, name = ?, result_url = ? WHERE id = ?"
+
+	var train Train
 
 	builder := query.ApplyQueryOptions()
-	builder.AddUpdate("train", "status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, result_url=:result_url").
-		AddWhere("id=:id")
+	builder.AddUpdate(
+		"train",
+		"status = ?, acc = ?, loss = ?, val_acc = ?, val_loss = ?, epochs = ?, name = ?, result_url = ?",
+		train.Status,
+		train.Acc,
+		train.Loss,
+		train.ValAcc,
+		train.ValLoss,
+		train.Epochs,
+		train.Name,
+		train.ResultUrl,
+	).AddWhere("id = ?", train.Id)
 
 	err := builder.Build()
 	if err != nil {

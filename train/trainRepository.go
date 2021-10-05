@@ -9,7 +9,7 @@ type TrainRepository interface {
 
 	Insert(train Train) (int64, error)
 	Delete(opts ...query.Option) error
-	Find(opts ...Option) (Train, error)
+	Find(opts ...query.Option) (Train, error)
 	FindAll(opts ...query.Option) ([]Train, error)
-	Update(train Train, opts ...Option) error
+	Update(train Train, opts ...query.Option) error
 }
