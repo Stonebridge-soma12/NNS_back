@@ -3,29 +3,9 @@ package train
 import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	"nns_back/query"
 	"testing"
 )
-
-func TestQuery_Apply(t *testing.T) {
-	expectString := `SELECT user_id, project_no FROM train t WHERE t.id = ? LIMIT ?, ?`
-
-	var q Query
-	q.AddSelect("user_id, project_no").
-		AddFrom("train t").
-		AddWhere("t.id = ?", 2).
-		AddLimit(0, 0)
-
-	err := q.Apply()
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	fmt.Println(q.QueryString)
-
-	if expectString != q.QueryString {
-		t.Errorf("Result is not same")
-	}
-}
 
 func TestTrainDbRepository_FindAll(t *testing.T) {
 	dbUrl := getDBInfo()
@@ -35,7 +15,7 @@ func TestTrainDbRepository_FindAll(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	var q Query
+	var q query.Query
 	q.AddSelect(defaultSelectTrainHistoryColumns).
 		AddFrom(`train t`).
 		AddJoin(`train_config tc ON t.id = tc.train_id`).
@@ -51,8 +31,6 @@ func TestTrainDbRepository_FindAll(t *testing.T) {
 	}
 
 	var historyList []History
-
-	fmt.Println(q.QueryString)
 
 	rows, err := db.Queryx(q.QueryString, q.Args...)
 	if err != nil {
