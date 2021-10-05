@@ -520,7 +520,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		"file size", fh.Size,
 		"MIME header", fh.Header)
 
-	url, err := h.AwsS3Client.Put(f)
+	url, err := h.AwsS3Client.UploadFile(f)
 	if err != nil {
 		h.Logger.Warnw(
 			"Failed to save model on S3 bucket",
