@@ -1,8 +1,9 @@
 package train
 
-
+//go:generate mockery --name TrainRepository --inpackage
 type TrainRepository interface {
 	FindNextTrainNo(userId int64) (int64, error)
+	CountCurrentTraining(userId int64) (int, error)
 
 	Insert(train Train) (int64, error)
 	Delete(opts ...Option) error
