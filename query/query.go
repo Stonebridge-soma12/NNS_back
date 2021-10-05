@@ -3,13 +3,16 @@ package query
 import "fmt"
 
 type Builder struct {
-	delete      bool
+	action      string
+	update      []string
+	updateTable string
 	selects     []string
 	from        []string
 	join        []string
 	where       []string
 	order       []string
 	limit       string
+	updateArgs  []interface{}
 	joinArgs    []interface{}
 	whereArgs   []interface{}
 	limitArgs   []interface{}
@@ -18,116 +21,146 @@ type Builder struct {
 }
 
 const (
+	actionDelete = "DEL"
+	actionSelect = "SEL"
+	actionUpdate = "UP"
+	actionAlter  = "ALT"
+)
+
+const (
 	ErrEmptySelect = "must specified selecting columns"
 	ErrEmptyFrom   = "must specified selecting table"
 )
 
-func (q *Builder) AddDelete() *Builder {
-	q.delete = true
+func (b *Builder) AddDelete() *Builder {
+	b.action = actionDelete
 
-	return q
+	return b
 }
 
-func (q *Builder) AddSelect(columns string) *Builder {
-	q.selects = append(q.selects, columns)
+func (b *Builder) AddUpdate(table string, set string, args ...interface{}) *Builder {
+	b.action = actionUpdate
+	b.updateTable = table
+	b.update = append(b.update, set)
+	b.updateArgs = append(b.updateArgs, args...)
 
-	return q
+	return b
 }
 
-func (q *Builder) AddFrom(table string) *Builder {
-	q.from = append(q.from, table)
+func (b *Builder) AddSelect(columns string) *Builder {
+	b.action = actionSelect
+	b.selects = append(b.selects, columns)
 
-	return q
+	return b
 }
 
-func (q *Builder) AddJoin(join string, args ...interface{}) *Builder {
-	q.join = append(q.join, join)
-	q.joinArgs = append(q.joinArgs, args...)
+func (b *Builder) AddFrom(table string) *Builder {
+	b.from = append(b.from, table)
 
-	return q
+	return b
 }
 
-func (q *Builder) AddWhere(where string, args ...interface{}) *Builder {
-	q.where = append(q.where, where)
-	q.whereArgs = append(q.whereArgs, args...)
+func (b *Builder) AddJoin(join string, args ...interface{}) *Builder {
+	b.join = append(b.join, join)
+	b.joinArgs = append(b.joinArgs, args...)
 
-	return q
+	return b
 }
 
-func (q *Builder) AddOrder(order string) *Builder {
-	q.order = append(q.order, order)
+func (b *Builder) AddWhere(where string, args ...interface{}) *Builder {
+	b.where = append(b.where, where)
+	b.whereArgs = append(b.whereArgs, args...)
 
-	return q
+	return b
 }
 
-func (q *Builder) AddLimit(offset, limit int) *Builder {
-	q.limit = "LIMIT ?, ?"
-	q.limitArgs = append(q.limitArgs, offset, limit)
+func (b *Builder) AddOrder(order string) *Builder {
+	b.order = append(b.order, order)
 
-	return q
+	return b
 }
 
-func (q *Builder) Build() error {
-	q.QueryString = ""
+func (b *Builder) AddLimit(offset, limit int) *Builder {
+	b.limit = "LIMIT ?, ?"
+	b.limitArgs = append(b.limitArgs, offset, limit)
 
-	if q.delete {
-		q.QueryString += "DELETE "
-	} else {
-		if len(q.selects) <= 0 {
+	return b
+}
+
+func (b *Builder) Build() error {
+	b.QueryString = ""
+
+	switch b.action {
+	case actionDelete:
+		b.QueryString += "DELETE "
+	case actionSelect:
+		if len(b.selects) <= 0 {
 			return fmt.Errorf(ErrEmptySelect)
 		}
-		q.QueryString += "SELECT "
-		for _, cols := range q.selects {
-			q.QueryString += cols + " "
+		b.QueryString += "SELECT "
+		for _, cols := range b.selects {
+			b.QueryString += cols + " "
 		}
+	case actionUpdate:
+		b.QueryString += "UPDATE " + b.updateTable + " "
+		for i, cols := range b.update {
+			b.QueryString += cols
+			if i < len(b.update)-1 {
+				b.QueryString += ", "
+			} else {
+				b.QueryString += " "
+			}
+		}
+
+		b.Args = append(b.Args, b.updateArgs...)
 	}
 
-	if len(q.from) <= 0 {
+	if len(b.from) <= 0 {
 		return fmt.Errorf(ErrEmptyFrom)
 	}
 
-	q.QueryString += "FROM "
-	for _, cols := range q.from {
-		q.QueryString += cols + " "
+	b.QueryString += "FROM "
+	for _, cols := range b.from {
+		b.QueryString += cols + " "
 	}
 
-	if len(q.joinArgs) > 0 {
-		q.Args = append(q.Args, q.joinArgs...)
+	if len(b.joinArgs) > 0 {
+		b.Args = append(b.Args, b.joinArgs...)
 	}
-	for _, cols := range q.join {
-		q.QueryString += "JOIN " + cols + " "
+	for _, cols := range b.join {
+		b.QueryString += "JOIN " + cols + " "
 	}
 
-	if len(q.where) > 0 {
-		q.QueryString += "WHERE "
+	if len(b.where) > 0 {
+		b.QueryString += "WHERE "
 
-		if len(q.whereArgs) > 0 {
-			q.Args = append(q.Args, q.whereArgs...)
+		if len(b.whereArgs) > 0 {
+			b.Args = append(b.Args, b.whereArgs...)
 		}
 	}
-	for i, cols := range q.where {
+	for i, cols := range b.where {
 		if i != 0 {
-			q.QueryString += "AND "
+			b.QueryString += "AND "
 		}
-		q.QueryString += cols + " "
+		b.QueryString += cols + " "
 	}
 
-	if len(q.order) > 0 {
-		q.QueryString += "ORDER BY "
+	if len(b.order) > 0 {
+		b.QueryString += "ORDER BY "
 	}
-	for i, cols := range q.order {
-		q.QueryString += cols
-		if i != len(q.where)-1 {
-			q.QueryString += ", "
+	for i, cols := range b.order {
+		b.QueryString += cols
+		if i != len(b.where)-1 {
+			b.QueryString += ", "
 		} else {
-			q.QueryString += " "
+			b.QueryString += " "
 		}
 	}
 
-	if q.limit != "" {
-		q.Args = append(q.Args, q.limitArgs...)
+	if b.limit != "" {
+		b.Args = append(b.Args, b.limitArgs...)
 	}
-	q.QueryString += q.limit
+	b.QueryString += b.limit
 
 	return nil
 }
