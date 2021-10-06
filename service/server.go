@@ -9,17 +9,21 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
-	"go.uber.org/zap"
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/dataset"
+	"nns_back/externalAPI"
+	"nns_back/log"
+	"nns_back/repository"
+	"nns_back/train"
 	"nns_back/ws"
 	"os"
+	"time"
 )
 
 type Env struct {
-	Logger *zap.SugaredLogger
-	DB     *sqlx.DB
+	DB            *sqlx.DB
+	CodeConverter externalAPI.CodeConverter
 }
 
 var (
@@ -29,12 +33,25 @@ var (
 	_Delete = []string{http.MethodDelete, http.MethodOptions}
 )
 
-func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore sessions.Store) {
-	e := Env{
-		Logger: logger,
-		DB:     db,
+func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
+	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		panic("failed to interface conversion")
 	}
-	e.Logger.Info("Start server")
+	defaultTransport := *defaultTransportPointer
+	defaultTransport.MaxIdleConns = 100
+	defaultTransport.MaxIdleConnsPerHost = 100
+
+	httpClient := &http.Client{
+		Transport: &defaultTransport,
+		Timeout:   time.Second * 10,
+	}
+
+	e := Env{
+		DB:            db,
+		CodeConverter: externalAPI.NewCodeConverter(httpClient),
+	}
+	log.Info("Start server")
 
 	// default router
 	router := mux.NewRouter()
@@ -83,6 +100,18 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	//router.HandleFunc("/ws", hub.WsHandler)
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
 
+	// Train log monitor
+	bridge := train.NewBridge(
+		&train.EpochDbRepository{DB: db},
+		&train.TrainDbRepository{DB: db},
+		&train.TrainLogDbRepository{DB: db},
+	)
+
+	// Train monitor
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/reply", bridge.TrainReplyHandler).Methods(_Post...)
+	authRouter.HandleFunc("/ws/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", bridge.MonitorWsHandler)
+
 	///////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
@@ -92,13 +121,14 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	awsSessionToken := os.Getenv("AWS_SESSION_TOKEN")
 	//imageBucketName := os.Getenv("IMAGE_BUCKET_NAME")
 	datasetBucketName := os.Getenv("DATASET_BUCKET_NAME")
+	trainedModelBucketName := os.Getenv("TRAINED_MODEL_BUCKET_NAME")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(awsAccessKeyId, awsSecretAccessKey, awsSessionToken)),
 		config.WithRegion("ap-northeast-2"),
 	)
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 
 	s3Client := s3.NewFromConfig(cfg)
@@ -107,7 +137,6 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Repository: &dataset.MysqlRepository{
 			DB: db,
 		},
-		Logger: logger,
 		AwsS3Client: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: datasetBucketName,
@@ -123,10 +152,32 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.AddNewDatasetToLibrary).Methods(_Post...)
 	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.DeleteDatasetFromLibrary).Methods(_Delete...)
 
-	///////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////
+	// Train Handler
+	trainHandler := train.Handler{
+		Fitter:            externalAPI.NewFitter(httpClient),
+		ProjectRepository: repository.NewProjectMysqlRepository(db),
+		TrainRepository: &train.TrainDbRepository{
+			DB: db,
+		},
+		EpochRepository: &train.EpochDbRepository{
+			DB: db,
+		},
+		AwsS3Uploader: &cloud.AwsS3Client{
+			Client:     s3Client,
+			BucketName: trainedModelBucketName,
+		},
+	}
 
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train", trainHandler.GetTrainHistoryListHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.DeleteTrainHistoryHandler).Methods(_Delete...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.UpdateTrainHistoryHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", trainHandler.GetTrainHistoryEpochsHandler).Methods(_Get...)
+
+	authRouter.HandleFunc("/api/train/{trainId:[0-9]+}/model", trainHandler.SaveTrainModelHandler).Methods(_Post...)
+
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////
 	router.Use(handlers.CORS(
 		handlers.AllowedMethods([]string{http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}),
 		handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Type", "Content-Language", "Origin"}),
@@ -146,6 +197,6 @@ func Start(port string, logger *zap.SugaredLogger, db *sqlx.DB, sessionStore ses
 		Handler: handlers.CombinedLoggingHandler(os.Stderr, router),
 		Addr:    port,
 	}
-	//e.Logger.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
-	e.Logger.Fatal(srv.ListenAndServe())
+	//log.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
+	log.Fatal(srv.ListenAndServe())
 }

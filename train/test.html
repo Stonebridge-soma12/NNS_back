@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>test</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport"/>
+  <style>
+    body {
+      cursor: none;
+    }
+
+    .cursor_item {
+      width: 25px;
+      height: 25px;
+      background: red;
+      position: absolute;
+      left: 0;
+      top: 0;
+      margin-top: -25px;
+      margin-left: -25px;
+    }
+
+  </style>
+  <script>
+    window.onload = function () {
+      var conn;
+      if (window["WebSocket"]) {
+        conn = new WebSocket("ws://localhost:8080/ws/project/1/train/1");
+
+        conn.onclose = function (event) {
+          document.getElementsByTagName("h1")[0].innerHTML = `Connection closed.`
+        };
+
+        conn.onmessage = function (event) {
+          var messages = event.data;
+          console.log(JSON.parse(messages))
+        };
+
+        function onMessage(message) {
+          console.log(message)
+        }
+      } else {
+        document.getElementsByTagName("h1")[0].innerHTML = `Your browser does not support WebSockets.`;
+      }
+    };
+  </script>
+
+</head>
+<body>
+<h1>Test</h1>
+<h2></h2>
+<div class="item"></div>
+</body>
+
+</html>

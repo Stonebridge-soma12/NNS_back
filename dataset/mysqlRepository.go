@@ -10,7 +10,7 @@ type MysqlRepository struct {
 }
 
 //func (m *MysqlRepository) count(builder squirrel.SelectBuilder) (int64, error) {
-//	query, args, err := builder.Columns("COUNT(ds.*)").From("dataset ds").ToSql()
+//	query, args, err := builder.Columns("COUNT(ds.*)").from("dataset ds").ToSql()
 //	if err != nil {
 //		return 0, err
 //	}
