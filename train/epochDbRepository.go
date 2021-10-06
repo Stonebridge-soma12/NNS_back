@@ -1,10 +1,15 @@
 package train
 
-import "github.com/jmoiron/sqlx"
+import (
+	"github.com/jmoiron/sqlx"
+	"nns_back/query"
+)
 
 const (
 	defaultSelectEpochQuery = "SELECT e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time FROM epoch e "
 	defaultDeleteEpochQuery = "DELETE FROM epoch "
+
+	defaultSelectEpochcolumns = "e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time"
 )
 
 
@@ -21,10 +26,18 @@ func insertEpoch() Option {
 }
 
 func (edr *EpochDbRepository) Insert(epoch Epoch) error {
-	options := options{}
-	insertEpoch().apply(&options)
+	builder := query.Builder{}
+	builder.AddInsert(
+		"epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate)",
+		":train_id, :epoch, :acc, :loss, :val_acc, :val_loss, :learning_rate",
+	)
 
-	_, err := edr.DB.NamedExec(options.queryString, &epoch)
+	err := builder.Build()
+	if err != nil {
+		return err
+	}
+
+	_, err = edr.DB.NamedExec(builder.QueryString, &epoch)
 	if err != nil {
 		return err
 	}
@@ -32,15 +45,19 @@ func (edr *EpochDbRepository) Insert(epoch Epoch) error {
 	return nil
 }
 
-func (edr *EpochDbRepository) Find(opts ...Option) (Epoch, error) {
-	options := options{
-		queryString: defaultSelectEpochQuery,
-	}
-
-	ApplyOptions(&options, opts...)
+func (edr *EpochDbRepository) Find(opts ...query.Option) (Epoch, error) {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddSelect(defaultSelectEpochcolumns).
+		AddFrom("epoch e")
 
 	var epoch Epoch
-	err := edr.DB.Get(&epoch, options.queryString, options.args...)
+
+	err := builder.Build()
+	if err != nil {
+		return epoch, err
+	}
+
+	err = edr.DB.Get(&epoch, builder.QueryString, builder.Args...)
 	if err != nil {
 		return epoch, err
 	}
@@ -48,15 +65,18 @@ func (edr *EpochDbRepository) Find(opts ...Option) (Epoch, error) {
 	return epoch, nil
 }
 
-func (edr *EpochDbRepository) FindAll(opts ...Option) ([]Epoch, error) {
-	options := options{
-		queryString: defaultSelectEpochQuery,
+func (edr *EpochDbRepository) FindAll(opts ...query.Option) ([]Epoch, error) {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddSelect(defaultSelectEpochcolumns).
+		AddFrom("epoch e")
+
+	err := builder.Build()
+	if err != nil {
+		return nil, err
 	}
 
-	ApplyOptions(&options, opts...)
-
 	var epochs []Epoch
-	rows, err := edr.DB.Queryx(options.queryString, options.args)
+	rows, err := edr.DB.Queryx(builder.QueryString, builder.Args)
 	if err != nil {
 		return nil, err
 	}

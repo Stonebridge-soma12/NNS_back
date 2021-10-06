@@ -165,7 +165,7 @@ func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	epochs, err := h.EpochRepository.FindAll(WithTrainID(train.Id))
+	epochs, err := h.EpochRepository.FindAll(WithTrainTrainId(train.Id))
 	if err != nil {
 		log.Warnw(
 			"Can't query with train id",
