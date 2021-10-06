@@ -18,7 +18,8 @@ type EpochDbRepository struct {
 func (edr *EpochDbRepository) Insert(epoch Epoch) error {
 	builder := query.Builder{}
 	builder.AddInsert(
-		"epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate)",
+		"epoch",
+		"train_id, epoch, acc, loss, val_acc, val_loss, learning_rate",
 		":train_id, :epoch, :acc, :loss, :val_acc, :val_loss, :learning_rate",
 	)
 
