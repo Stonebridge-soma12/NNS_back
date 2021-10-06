@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"io"
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/externalAPI"
@@ -15,7 +16,10 @@ import (
 	"time"
 )
 
-const saveTrainedModelFormFileKey = "model"
+const (
+	saveTrainedModelFormFileKey = "model"
+	trainModelContentType = "application/zip"
+)
 
 type Handler struct {
 	Fitter            externalAPI.Fitter
@@ -117,7 +121,7 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 	util.WriteJson(w, http.StatusOK, resp)
 }
 
-func (h *Handler) GetRainHistoryEpochsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetTrainHistoryEpochsHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw(
@@ -478,20 +482,15 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) {
-	type saveModelRequestBody struct {
-		UserId  int64 `json:"user_id"`
-		TrainId int64 `json:"train_id"`
-	}
-
-	var reqBody saveModelRequestBody
-	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	trainId, err := strconv.ParseInt(mux.Vars(r)["trainId"], 10, 64)
 	if err != nil {
 		log.Warnw(
-			"failed to bind request body",
-			"error code", util.ErrInvalidRequestBody,
+			"failed to convert trainId to int",
+			"error code", util.ErrInvalidPathParm,
 			"error", err,
+			"input value", mux.Vars(r)["trainId"],
 		)
-		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidRequestBody)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
 		return
 	}
 
@@ -512,7 +511,13 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		"file size", fh.Size,
 		"MIME header", fh.Header)
 
-	url, err := h.AwsS3Uploader.UploadFile(f)
+	fBytes, err := io.ReadAll(f)
+	if err != nil {
+		log.Errorf("error")
+		return
+	}
+
+	url, err := h.AwsS3Uploader.UploadBytes(fBytes, cloud.WithContentType(trainModelContentType), cloud.WithExtension("zip"))
 	if err != nil {
 		log.Warnw(
 			"Failed to save model on S3 bucket",
@@ -523,13 +528,13 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithTrainTrainId(reqBody.TrainId))
+	train, err := h.TrainRepository.Find(WithTrainTrainId(trainId))
 	if err != nil {
 		log.Warnw(
 			"Can't query with train id",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
-			"input value", reqBody.TrainId,
+			"input value", trainId,
 		)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInvalidQueryParm)
 		return

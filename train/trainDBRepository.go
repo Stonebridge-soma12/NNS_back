@@ -34,7 +34,7 @@ const (
 
 func WithTrainTrainId(trainId int64) query.Option {
 	return query.OptionFunc(func(b *query.Builder) {
-		b.AddWhere("train.train_id = ?", trainId)
+		b.AddWhere("t.id = ?", trainId)
 	})
 }
 
@@ -101,22 +101,6 @@ WHERE t.user_id = ?
 `, userId).Scan(&count)
 
 	return count, err
-}
-
-func insertTrain() Option {
-	return optionFunc(func(o *options) {
-		o.queryString = "insert into " +
-			"train (status, acc, loss, val_acc, val_loss, epochs, name, result_url) " +
-			"values(:status, :acc, :loss, :val_acc, :val_loss, :epochs, :name, :result_url)"
-	})
-}
-
-func updateTrain() Option {
-	return optionFunc(func(o *options) {
-		o.queryString = "update train " +
-			"set status=:status, acc=:acc, loss=:loss, val_acc=:val_acc, val_loss=:val_loss, epochs=:epochs, name=:name, result_url=:result_url " +
-			"where id = :id"
-	})
 }
 
 func (tdb *TrainDbRepository) Insert(train Train) (int64, error) {
@@ -253,11 +237,14 @@ func (tdb *TrainDbRepository) Find(opts ...query.Option) (Train, error) {
 		AddJoin("train_config tc ON t.id = tc.train_id").
 		AddJoin("project p ON t.project_id = p.id")
 
-	builder.Build()
+	err := builder.Build()
+	if err != nil {
+		return Train{}, nil
+	}
 
 	var train Train
 	row := tdb.DB.QueryRow(builder.QueryString, builder.Args...)
-	err := row.Scan(
+	err = row.Scan(
 		&train.Id,
 		&train.UserId,
 		&train.TrainNo,

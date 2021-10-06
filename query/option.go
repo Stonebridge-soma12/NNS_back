@@ -11,7 +11,7 @@ func (o OptionFunc) apply(q *Builder) {
 }
 
 func ApplyQueryOptions(opts ...Option) *Builder {
-	result := &Builder{}
+	result := new(Builder)
 
 	for _, o := range opts {
 		o.apply(result)

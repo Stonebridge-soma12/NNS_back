@@ -168,8 +168,9 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train", trainHandler.GetTrainHistoryListHandler).Methods(_Get...)
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.DeleteTrainHistoryHandler).Methods(_Delete...)
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.UpdateTrainHistoryHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", trainHandler.GetTrainHistoryEpochsHandler).Methods(_Get...)
 
-	authRouter.HandleFunc("/api/model", trainHandler.SaveTrainModelHandler).Methods(_Post...)
+	authRouter.HandleFunc("/api/train/{trainId:[0-9]+}/model", trainHandler.SaveTrainModelHandler).Methods(_Post...)
 
 	///////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////
