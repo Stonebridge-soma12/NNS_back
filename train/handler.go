@@ -1,16 +1,15 @@
 package train
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"net/http"
 	"nns_back/cloud"
+	"nns_back/externalAPI"
 	"nns_back/log"
-	"nns_back/model"
+	"nns_back/repository"
 	"nns_back/util"
 	"strconv"
 	"time"
@@ -19,11 +18,11 @@ import (
 const saveTrainedModelFormFileKey = "model"
 
 type Handler struct {
-	HttpClient      *http.Client
-	DB              *sqlx.DB
-	TrainRepository TrainRepository
-	EpochRepository EpochRepository
-	AwsS3Uploader   cloud.AwsS3Uploader
+	Fitter            externalAPI.Fitter
+	ProjectRepository repository.ProjectRepository
+	TrainRepository   TrainRepository
+	EpochRepository   EpochRepository
+	AwsS3Uploader     cloud.AwsS3Uploader
 }
 
 type GetTrainHistoryListResponseBody struct {
@@ -384,7 +383,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := model.SelectProject(h.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		log.Errorf("failed to select project: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -438,55 +437,26 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type RequestBodyDataSetNormalization struct {
-		Usage  bool   `json:"usage"`
-		Method string `json:"method"`
-	}
-
-	type RequestBodyDataSet struct {
-		TrainUri      string                          `json:"train_uri"`
-		ValidationUri string                          `json:"validation_uri"`
-		Shuffle       bool                            `json:"shuffle"`
-		Label         string                          `json:"label"`
-		Normalization RequestBodyDataSetNormalization `json:"normalization"`
-	}
-
-	type RequestBody struct {
-		TrainId int64              `json:"train_id"`
-		UserId  int64              `json:"user_id"`
-		Config  json.RawMessage    `json:"config"`
-		Content json.RawMessage    `json:"content"`
-		DataSet RequestBodyDataSet `json:"data_set"`
-	}
-
 	// make request body
-	payload := RequestBody{
+	payload := externalAPI.FitRequestBody{
 		TrainId: newTrain.Id,
 		UserId:  userId,
 		Config:  project.Config.Json,
 		Content: project.Content.Json,
-		DataSet: RequestBodyDataSet{
+		DataSet: externalAPI.FitRequestBodyDataSet{
 			TrainUri:      body.Dataset.TrainUrl,
 			ValidationUri: body.Dataset.ValidateUrl,
 			Shuffle:       body.Dataset.Shuffle,
 			Label:         body.Dataset.Label,
-			Normalization: RequestBodyDataSetNormalization{
+			Normalization: externalAPI.FitRequestBodyDataSetNormalization{
 				Usage:  body.Dataset.Normalization.Usage,
 				Method: body.Dataset.Normalization.Method,
 			},
 		},
 	}
-	jsonedPayload, err := json.Marshal(payload)
-	if err != nil {
-		log.Errorw("failed to json marshal",
-			"error code", util.ErrInternalServerError,
-			"error", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
 
 	// send request
-	resp, err := h.HttpClient.Post("http://54.180.153.56:8080/fit", "application/json", bytes.NewBuffer(jsonedPayload))
+	resp, err := h.Fitter.Fit(payload)
 	if err != nil {
 		log.Errorw("failed to generate python code",
 			"error code", util.ErrInternalServerError,
