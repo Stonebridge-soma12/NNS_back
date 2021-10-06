@@ -1,10 +1,14 @@
 package train
 
-import "github.com/jmoiron/sqlx"
+import (
+	"github.com/jmoiron/sqlx"
+	"nns_back/query"
+)
 
 const (
 	defaultSelectTrainLogQuery = "SELECT id, train_id, msg, status_code, create_time, update_time FROM train_log "
 	defaultDeleteTrainLogQuery = "DELETE FROM train_log "
+	defaultSelectTrainLogColumns = "id, train_id, msg, status_code, create_time, update_time"
 )
 
 type TrainLogDbRepository struct {
@@ -19,10 +23,19 @@ func insertLog() Option {
 }
 
 func (ldr *TrainLogDbRepository) Insert(trainLog TrainLog) error {
-	options := options{}
-	insertLog().apply(&options)
+	builder := query.Builder{}
+	builder.AddInsert(
+			"trainLog",
+			"train_id, msg",
+			":train_id, :msg",
+		)
 
-	_, err := ldr.DB.NamedExec(options.queryString, &trainLog)
+	err := builder.Build()
+	if err != nil {
+		return err
+	}
+
+	_, err = ldr.DB.NamedExec(builder.QueryString, &trainLog)
 	if err != nil {
 		return err
 	}
@@ -30,13 +43,12 @@ func (ldr *TrainLogDbRepository) Insert(trainLog TrainLog) error {
 	return nil
 }
 
-func (ldr *TrainLogDbRepository) Delete(opts ...Option) error {
-	options := options {
-		queryString: defaultDeleteTrainLogQuery,
-	}
-	ApplyOptions(&options, opts...)
+func (ldr *TrainLogDbRepository) Delete(opts ...query.Option) error {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddDelete().
+		AddFrom("trainLog")
 
-	_, err := ldr.DB.Exec(options.queryString, options.args)
+	_, err := ldr.DB.Exec(builder.QueryString, builder.Args)
 	if err != nil {
 		return err
 	}
@@ -44,14 +56,18 @@ func (ldr *TrainLogDbRepository) Delete(opts ...Option) error {
 	return nil
 }
 
-func (ldr *TrainLogDbRepository) Find(opts ...Option) (TrainLog, error) {
-	options := options{
-		queryString: defaultSelectTrainLogQuery,
+func (ldr *TrainLogDbRepository) Find(opts ...query.Option) (TrainLog, error) {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddSelect(defaultSelectTrainLogColumns).
+		AddFrom("trainLog")
+
+	err := builder.Build()
+	if err != nil {
+		return TrainLog{}, err
 	}
-	ApplyOptions(&options, opts...)
 
 	var trainLog TrainLog
-	err := ldr.DB.Get(&trainLog, options.queryString, options.args...)
+	err = ldr.DB.Get(&trainLog, builder.QueryString, builder.Args...)
 	if err != nil {
 		return TrainLog{}, err
 	}
@@ -59,13 +75,17 @@ func (ldr *TrainLogDbRepository) Find(opts ...Option) (TrainLog, error) {
 	return trainLog, err
 }
 
-func (ldr *TrainLogDbRepository) FindAll(opts ... Option) ([]TrainLog, error) {
-	options := options{
-		queryString: defaultSelectEpochQuery,
-	}
-	ApplyOptions(&options, opts...)
+func (ldr *TrainLogDbRepository) FindAll(opts ... query.Option) ([]TrainLog, error) {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddSelect(defaultSelectTrainLogColumns).
+		AddFrom("trainLog")
 
-	rows, err := ldr.DB.Queryx(options.queryString, options.args)
+	err := builder.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := ldr.DB.Queryx(builder.QueryString, builder.Args)
 	if err != nil {
 		return nil, err
 	}
