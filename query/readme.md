@@ -7,6 +7,47 @@
 - 쿼리문 작성시 필요한 옵션을 직접 구현해서 사용 WithUserId 함수 참조.
   
 - 반드시 필요한 부분을 모두 Add 후에 Apply 할 것.
+### AddFunctions
+- AddSelect(columns string)
+    ```go
+    builder.AddSelect("id, name")
+    ```
+- AddDelete()
+    ```
+    builder.AddDelete().
+        AddFrom("user")
+    ```
+- AddUpdate(table string, set string, args ...interface{})
+    ```go
+    builder.AddUpdate("user", "name=?", "foo")
+    ```
+- AddInsert(table, columns, values string)
+    ```go
+    builder.AddInsert("user", "name=?", "bar")
+    ```
+- AddFrom(table string)
+    ```go
+    AddFrom("user")
+    ```
+- AddJoin(join string, args ...interface{})
+    ```go
+    builder.AddJoin("post p ON u.name = ?", "foo")
+    ```
+- AddWhere(where string, args ...interface{})
+    ```go
+    builder.AddWhere("u.id = ?", 1)
+    ```
+- AddOrder(order string)
+    ```go
+    builder.AddOrder("id")
+  // or
+  builder.AddOrder("id DESC")
+    ```
+- AddLimit(offset, limit int)
+    ```go
+    builder.AddLimit(0, 100)
+    ```
+
 ### Install
 ```
 go get github.com/elixter/Querybuilder

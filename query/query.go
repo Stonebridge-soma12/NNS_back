@@ -51,10 +51,10 @@ func (b *Builder) AddUpdate(table string, set string, args ...interface{}) *Buil
 	return b
 }
 
-func (b *Builder) AddInsert(table, colums, values string) *Builder {
+func (b *Builder) AddInsert(table, columns, values string) *Builder {
 	b.action = actionInsert
 	b.insert = table
-	b.insertColumns = colums
+	b.insertColumns = columns
 	b.insertValues = values
 
 	return b
