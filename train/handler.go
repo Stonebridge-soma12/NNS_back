@@ -553,7 +553,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithTrainId(reqBody.TrainId))
+	train, err := h.TrainRepository.Find(WithTrainTrainId(reqBody.TrainId))
 	if err != nil {
 		log.Warnw(
 			"Can't query with train id",

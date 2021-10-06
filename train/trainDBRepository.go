@@ -30,41 +30,9 @@ const (
 								   tc.model_config,
 								   tc.create_time,
 								   tc.update_time`
-	defaultDeleteTrainQuery = "update train set status='DEL' "
-	defaultSelectTrainQuery = `SELECT t.id,
-								   t.user_id,
-								   t.train_no,
-								   t.project_id,
-								   t.acc,
-								   t.loss,
-								   t.val_acc,
-								   t.val_loss,
-								   t.name,
-								   t.epochs,
-								   t.url,
-								   t.status,
-								   tc.id,
-								   tc.train_id,
-								   tc.train_dataset_url,
-								   tc.valid_dataset_url,
-								   tc.dataset_shuffle,
-								   tc.dataset_label,
-								   tc.dataset_normalization_usage,
-								   tc.dataset_normalization_method,
-								   tc.model_content,
-								   tc.model_config,
-								   tc.create_time,
-								   tc.update_time
-							FROM train t
-									 JOIN train_config tc ON t.id = tc.train_id
-									 JOIN project p ON t.project_id = p.id
-							WHERE p.user_id = ?
-							  AND p.project_no = ?
-							  AND t.status != 'DEL'
-							LIMIT ?, ?`
 )
 
-func WithTrainId(trainId int64) query.Option {
+func WithTrainTrainId(trainId int64) query.Option {
 	return query.OptionFunc(func(b *query.Builder) {
 		b.AddWhere("train.train_id = ?", trainId)
 	})

@@ -80,7 +80,7 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	train, err := b.trainRepository.Find(WithTrainId(epoch.TrainId))
+	train, err := b.trainRepository.Find(WithTrainTrainId(epoch.TrainId))
 	if err != nil {
 		log.Println(err)
 		return
@@ -142,7 +142,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	train, err := b.trainRepository.Find(WithTrainId(tid))
+	train, err := b.trainRepository.Find(WithTrainTrainId(tid))
 	if err != nil {
 		log.Println(err)
 		return
