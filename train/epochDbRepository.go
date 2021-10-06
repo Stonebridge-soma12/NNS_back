@@ -7,8 +7,6 @@ import (
 
 const (
 	defaultSelectEpochQuery = "SELECT e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time FROM epoch e "
-	defaultDeleteEpochQuery = "DELETE FROM epoch "
-
 	defaultSelectEpochColumns = "e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time"
 )
 
