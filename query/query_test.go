@@ -35,7 +35,8 @@ func TestBuilder_AddInsert(t *testing.T) {
 
 	var q Builder
 	q.AddInsert(
-		"epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate)",
+		"epoch",
+		"train_id, epoch, acc, loss, val_acc, val_loss, learning_rate",
 		":train_id, :epoch, :acc, :loss, :val_acc, :val_loss, :learning_rate",
 		)
 
