@@ -2,46 +2,8 @@ package query
 
 import (
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"nns_back/train"
-	"os"
+	"strings"
 	"testing"
-)
-
-func getDBInfo() string {
-	id := os.Getenv("DBUSER")
-	pw := os.Getenv("DBPW")
-	ip := os.Getenv("DBIP")
-	port := os.Getenv("DBPORT")
-
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/nns?parseTime=true", id, pw, ip, port)
-}
-
-const (
-	defaultSelectTrainHistoryColumns = `t.id,
-								   t.user_id,
-								   t.train_no,
-								   t.project_id,
-								   t.acc,
-								   t.loss,
-								   t.val_acc,
-								   t.val_loss,
-								   t.name,
-								   t.epochs,
-								   t.result_url,
-								   t.status,
-								   tc.id,
-								   tc.train_id,
-								   tc.train_dataset_url,
-								   tc.valid_dataset_url,
-								   tc.dataset_shuffle,
-								   tc.dataset_label,
-								   tc.dataset_normalization_usage,
-								   tc.dataset_normalization_method,
-								   tc.model_content,
-								   tc.model_config,
-								   tc.create_time,
-								   tc.update_time`
 )
 
 func TestQuery_Apply(t *testing.T) {
@@ -66,85 +28,25 @@ func TestQuery_Apply(t *testing.T) {
 	}
 }
 
-type TestRepo struct {
-	DB *sqlx.DB
-}
+func TestBuilder_AddInsert(t *testing.T) {
+	expectString := "INSERT INTO " +
+			"epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate) " +
+			"VALUES(:train_id, :epoch, :acc, :loss, :val_acc, :val_loss, :learning_rate)"
 
-func (t TestRepo) FindAll(opts ...Option) ([]train.History, error) {
-	query := ApplyQueryOptions(opts...)
-	query.AddSelect(defaultSelectTrainHistoryColumns).
-		AddFrom(`train t`).
-		AddJoin(`train_config tc ON t.id = tc.train_id`).
-		AddJoin(`project p ON t.project_id = p.id`)
-
-	err := query.Build()
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := t.DB.Queryx(query.QueryString, query.Args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var historyList []train.History
-	for rows.Next() {
-		var history train.History
-		err = rows.Scan(
-			&history.Train.Id,
-			&history.Train.UserId,
-			&history.Train.TrainNo,
-			&history.Train.ProjectId,
-			&history.Train.Acc,
-			&history.Train.Loss,
-			&history.Train.ValAcc,
-			&history.Train.ValLoss,
-			&history.Train.Name,
-			&history.Train.Epochs,
-			&history.Train.ResultUrl,
-			&history.Train.Status,
-			&history.TrainConfig.Id,
-			&history.TrainConfig.TrainId,
-			&history.TrainConfig.TrainDatasetUrl,
-			&history.TrainConfig.ValidDatasetUrl,
-			&history.TrainConfig.DatasetShuffle,
-			&history.TrainConfig.DatasetLabel,
-			&history.TrainConfig.DatasetNormalizationUsage,
-			&history.TrainConfig.DatasetNormalizationMethod,
-			&history.TrainConfig.ModelContent,
-			&history.TrainConfig.ModelConfig,
-			&history.TrainConfig.CreateTime,
-			&history.TrainConfig.UpdateTime,
+	var q Builder
+	q.AddInsert(
+		"epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate)",
+		":train_id, :epoch, :acc, :loss, :val_acc, :val_loss, :learning_rate",
 		)
-		if err != nil {
-			return nil, err
-		}
-		historyList = append(historyList, history)
-	}
 
-	return historyList, nil
-}
-
-func WithTrainId(trainId int64) Option {
-	return OptionFunc(func (q *Builder) {
-		q.AddWhere("train_id = ?", trainId)
-	})
-}
-
-func TestApplyQueryOptions(t *testing.T) {
-	dbUrl := getDBInfo()
-
-	db, err := sqlx.Open("mysql", dbUrl)
+	err := q.Build()
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
-	repo := TestRepo{DB: db}
-	historyList, err := repo.FindAll(WithTrainId(2))
-	if err != nil {
-		t.Errorf(err.Error())
-	}
+	fmt.Printf(q.QueryString)
 
-	fmt.Printf("%+v\n", historyList)
+	if strings.TrimSuffix(expectString, " ") != strings.TrimSuffix(q.QueryString, " ") {
+		t.Errorf("Result is not same")
+	}
 }

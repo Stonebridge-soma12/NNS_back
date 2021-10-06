@@ -3,21 +3,23 @@ package query
 import "fmt"
 
 type Builder struct {
-	action      string
-	update      []string
-	updateTable string
-	selects     []string
-	from        []string
-	join        []string
-	where       []string
-	order       []string
-	limit       string
-	updateArgs  []interface{}
-	joinArgs    []interface{}
-	whereArgs   []interface{}
-	limitArgs   []interface{}
-	Args        []interface{}
-	QueryString string
+	action       string
+	update       []string
+	updateTable  string
+	insert       string
+	insertValues string
+	selects      []string
+	from         []string
+	join         []string
+	where        []string
+	order        []string
+	limit        string
+	updateArgs   []interface{}
+	joinArgs     []interface{}
+	whereArgs    []interface{}
+	limitArgs    []interface{}
+	Args         []interface{}
+	QueryString  string
 }
 
 const (
@@ -25,6 +27,7 @@ const (
 	actionSelect = "SEL"
 	actionUpdate = "UP"
 	actionAlter  = "ALT"
+	actionInsert = "INS"
 )
 
 const (
@@ -43,6 +46,14 @@ func (b *Builder) AddUpdate(table string, set string, args ...interface{}) *Buil
 	b.updateTable = table
 	b.update = append(b.update, set)
 	b.updateArgs = append(b.updateArgs, args...)
+
+	return b
+}
+
+func (b *Builder) AddInsert(table string, values string) *Builder {
+	b.action = actionInsert
+	b.insert = table
+	b.insertValues = values
 
 	return b
 }
@@ -106,6 +117,8 @@ func (b *Builder) Build() error {
 		}
 	case actionUpdate:
 		b.QueryString += "UPDATE " + b.updateTable + " "
+	case actionInsert:
+		b.QueryString += "INSERT INTO " + b.insert + " VALUES(" + b.insertValues + ") "
 	}
 
 	if len(b.from) > 0 {
