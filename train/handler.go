@@ -9,6 +9,7 @@ import (
 	"nns_back/cloud"
 	"nns_back/externalAPI"
 	"nns_back/log"
+	"nns_back/model"
 	"nns_back/repository"
 	"nns_back/util"
 	"strconv"
@@ -331,23 +332,6 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 지금은 각 유저는 한번에 하나의 학습만 가능
-	// 이 유저가 현재 학습중인지 확인
-	trainingCount, err := h.TrainRepository.CountCurrentTraining(userId)
-	if err != nil {
-		log.Errorf("failed to CountCurrentTraining(): %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-
-	if trainingCount >= _numberOfTrainingLimit {
-		// 지금은 새로운 학습 요청을 할 수 없음
-		log.Warnw("current training count is maximum",
-			"trainingCount", trainingCount)
-		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
-		return
-	}
-
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw(
@@ -360,20 +344,79 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
-	if err != nil {
-		log.Errorf("failed to select project: %v", err)
+	// 지금은 각 유저는 한번에 하나의 학습만 가능
+	// 이 유저가 현재 학습중인지 확인
+	if trainable, err := isTrainable(h.TrainRepository, userId); err != nil {
+		log.Errorf("failed to CountCurrentTraining(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	} else if !trainable {
+		log.Warnw("current training count is maximum")
+		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		return
+	}
+
+	if err := startNewTrain(h.TrainRepository, h.ProjectRepository, h.Fitter, userId, projectNo, body); err != nil {
+		log.Error(err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	nextTrainNo, err := h.TrainRepository.FindNextTrainNo(userId)
+	w.WriteHeader(http.StatusOK)
+}
+
+func isTrainable(trainRepository TrainRepository, userId int64) (bool, error){
+	trainingCount, err := trainRepository.CountCurrentTraining(userId)
 	if err != nil {
-		log.Errorf("failed to FindNextTrainNo: %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
+		return false, err
 	}
 
+	result := false
+	if trainingCount < _numberOfTrainingLimit {
+		result = true
+	}
+
+	return result, nil
+}
+
+func startNewTrain(trainRepository TrainRepository, projectRepository repository.ProjectRepository, fitter externalAPI.Fitter, userId int64, projectNo int, body NewTrainHandlerRequestBody) error {
+	project, err := projectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
+	if err != nil {
+		return err
+	}
+
+	nextTrainNo, err := trainRepository.FindNextTrainNo(userId)
+	if err != nil {
+		return err
+	}
+
+	newTrain := createNewTrain(userId, nextTrainNo, project, body)
+	newTrain.Id, err = saveTrain(trainRepository, newTrain)
+	if err != nil {
+		return err
+	}
+
+	payload := externalAPI.FitRequestBody{
+		TrainId: newTrain.Id,
+		UserId:  userId,
+		Config:  project.Config.Json,
+		Content: project.Content.Json,
+		DataSet: externalAPI.FitRequestBodyDataSet{
+			TrainUri:      body.Dataset.TrainUrl,
+			ValidationUri: body.Dataset.ValidateUrl,
+			Shuffle:       body.Dataset.Shuffle,
+			Label:         body.Dataset.Label,
+			Normalization: externalAPI.FitRequestBodyDataSetNormalization{
+				Usage:  body.Dataset.Normalization.Usage,
+				Method: body.Dataset.Normalization.Method,
+			},
+		},
+	}
+
+	return fitRequest(fitter, payload)
+}
+
+func createNewTrain(userId int64, nextTrainNo int64, project model.Project, body NewTrainHandlerRequestBody) Train {
 	newTrain := Train{
 		//Id:        0,
 		UserId:    userId,
@@ -407,51 +450,24 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	newTrain.Id, err = h.TrainRepository.Insert(newTrain)
-	if err != nil {
-		log.Errorf("failed to Insert train: %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
+	return newTrain
+}
 
-	// make request body
-	payload := externalAPI.FitRequestBody{
-		TrainId: newTrain.Id,
-		UserId:  userId,
-		Config:  project.Config.Json,
-		Content: project.Content.Json,
-		DataSet: externalAPI.FitRequestBodyDataSet{
-			TrainUri:      body.Dataset.TrainUrl,
-			ValidationUri: body.Dataset.ValidateUrl,
-			Shuffle:       body.Dataset.Shuffle,
-			Label:         body.Dataset.Label,
-			Normalization: externalAPI.FitRequestBodyDataSetNormalization{
-				Usage:  body.Dataset.Normalization.Usage,
-				Method: body.Dataset.Normalization.Method,
-			},
-		},
-	}
+func saveTrain(trainRepository TrainRepository, train Train) (int64, error) {
+	return trainRepository.Insert(train)
+}
 
-	// send request
-	resp, err := h.Fitter.Fit(payload)
+func fitRequest(fitter externalAPI.Fitter, payload externalAPI.FitRequestBody) error {
+	resp, err := fitter.Fit(payload)
 	if err != nil {
-		log.Errorw("failed to generate python code",
-			"error code", util.ErrInternalServerError,
-			"error", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
+		return err
 	}
 	defer resp.Body.Close()
 
-	// response
-	if resp.StatusCode != 200 {
-		log.Warnw("failed to fit",
-			"status code", resp.StatusCode)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("failed to Fit")
 	}
-
-	w.WriteHeader(http.StatusOK)
+	return nil
 }
 
 func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) {
