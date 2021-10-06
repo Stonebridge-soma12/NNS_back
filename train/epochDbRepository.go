@@ -9,20 +9,12 @@ const (
 	defaultSelectEpochQuery = "SELECT e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time FROM epoch e "
 	defaultDeleteEpochQuery = "DELETE FROM epoch "
 
-	defaultSelectEpochcolumns = "e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time"
+	defaultSelectEpochColumns = "e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time"
 )
 
 
 type EpochDbRepository struct {
 	DB *sqlx.DB
-}
-
-func insertEpoch() Option {
-	return optionFunc(func(o *options) {
-		o.queryString = "insert into " +
-			"epoch(train_id, epoch, acc, loss, val_acc, val_loss, learning_rate) " +
-			"values (:train_id, :epoch, :acc, :loss, :val_acc, :val_loss, :learning_rate)"
-	})
 }
 
 func (edr *EpochDbRepository) Insert(epoch Epoch) error {
@@ -47,7 +39,7 @@ func (edr *EpochDbRepository) Insert(epoch Epoch) error {
 
 func (edr *EpochDbRepository) Find(opts ...query.Option) (Epoch, error) {
 	builder := query.ApplyQueryOptions(opts...)
-	builder.AddSelect(defaultSelectEpochcolumns).
+	builder.AddSelect(defaultSelectEpochColumns).
 		AddFrom("epoch e")
 
 	var epoch Epoch
@@ -67,7 +59,7 @@ func (edr *EpochDbRepository) Find(opts ...query.Option) (Epoch, error) {
 
 func (edr *EpochDbRepository) FindAll(opts ...query.Option) ([]Epoch, error) {
 	builder := query.ApplyQueryOptions(opts...)
-	builder.AddSelect(defaultSelectEpochcolumns).
+	builder.AddSelect(defaultSelectEpochColumns).
 		AddFrom("epoch e")
 
 	err := builder.Build()
@@ -94,14 +86,17 @@ func (edr *EpochDbRepository) FindAll(opts ...query.Option) ([]Epoch, error) {
 	return epochs, nil
 }
 
-func (edr *EpochDbRepository) Delete(opts ...Option) error {
-	options := options{
-		queryString: defaultDeleteEpochQuery,
+func (edr *EpochDbRepository) Delete(opts ...query.Option) error {
+	builder := query.ApplyQueryOptions(opts...)
+	builder.AddDelete().
+		AddFrom("epoch e")
+
+	err := builder.Build()
+	if err != nil {
+		return err
 	}
 
-	ApplyOptions(&options, opts...)
-
-	_, err := edr.DB.Exec(options.queryString, options.args)
+	_, err = edr.DB.Exec(builder.QueryString,builder.Args)
 	if err != nil {
 		return err
 	}
