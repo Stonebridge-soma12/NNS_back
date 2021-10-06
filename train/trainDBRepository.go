@@ -203,7 +203,7 @@ func (tdb *TrainDbRepository) Delete(opts ...query.Option) error {
 }
 
 func (tdb *TrainDbRepository) Update(train Train, opts ...query.Option) error {
-	builder := query.ApplyQueryOptions()
+	builder := query.ApplyQueryOptions(opts...)
 	builder.AddUpdate(
 		"train",
 		"status = ?, acc = ?, loss = ?, val_acc = ?, val_loss = ?, epochs = ?, name = ?, result_url = ?",

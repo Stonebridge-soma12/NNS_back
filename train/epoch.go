@@ -8,6 +8,7 @@ import (
 )
 
 type Epoch struct {
+	Id           int64     `db:"id" json:"id"`
 	TrainId      int64     `db:"train_id" json:"train_id" header:"train_id"`
 	Acc          float64   `db:"acc" json:"accuracy"`
 	Epoch        int       `db:"epoch" json:"epoch"`

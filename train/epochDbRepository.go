@@ -7,9 +7,15 @@ import (
 
 const (
 	defaultSelectEpochQuery = "SELECT e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time FROM epoch e "
-	defaultSelectEpochColumns = "e.id, train_id, epoch, acc, loss, val_acc, val_loss, learning_rate, create_time, update_time"
+	defaultSelectEpochColumns = "e.id, e.train_id, e.epoch, e.acc, e.loss, e.val_acc, e.val_loss, e.learning_rate, e.create_time, e.update_time"
 )
 
+
+func WithEpochTrainId(trainId int64) query.Option {
+	return query.OptionFunc(func(b *query.Builder) {
+		b.AddWhere("e.id = ?", trainId)
+	})
+}
 
 type EpochDbRepository struct {
 	DB *sqlx.DB
@@ -39,7 +45,9 @@ func (edr *EpochDbRepository) Insert(epoch Epoch) error {
 func (edr *EpochDbRepository) Find(opts ...query.Option) (Epoch, error) {
 	builder := query.ApplyQueryOptions(opts...)
 	builder.AddSelect(defaultSelectEpochColumns).
-		AddFrom("epoch e")
+		AddFrom("epoch e").
+		AddJoin("train t ON e.train_id = t.id").
+		AddJoin("project p ON t.project_id = p.id")
 
 	var epoch Epoch
 
@@ -59,7 +67,9 @@ func (edr *EpochDbRepository) Find(opts ...query.Option) (Epoch, error) {
 func (edr *EpochDbRepository) FindAll(opts ...query.Option) ([]Epoch, error) {
 	builder := query.ApplyQueryOptions(opts...)
 	builder.AddSelect(defaultSelectEpochColumns).
-		AddFrom("epoch e")
+		AddFrom("epoch e").
+		AddJoin("train t ON e.train_id = t.id").
+		AddJoin("project p ON t.project_id = p.id")
 
 	err := builder.Build()
 	if err != nil {
@@ -67,7 +77,7 @@ func (edr *EpochDbRepository) FindAll(opts ...query.Option) ([]Epoch, error) {
 	}
 
 	var epochs []Epoch
-	rows, err := edr.DB.Queryx(builder.QueryString, builder.Args)
+	rows, err := edr.DB.Queryx(builder.QueryString, builder.Args...)
 	if err != nil {
 		return nil, err
 	}

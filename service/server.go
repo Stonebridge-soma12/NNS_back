@@ -159,6 +159,9 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 		TrainRepository: &train.TrainDbRepository{
 			DB: db,
 		},
+		EpochRepository: &train.EpochDbRepository{
+			DB: db,
+		},
 		AwsS3Uploader: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: trainedModelBucketName,

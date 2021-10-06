@@ -157,25 +157,13 @@ func (h *Handler) GetTrainHistoryEpochsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithTrainUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
+	epochs, err := h.EpochRepository.FindAll(WithTrainUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
 	if err != nil {
 		log.Warnw(
-			"Can't query with userId or projectNo or trainNo",
+			"Can't query with userId, projectNo, trainNo",
 			"error code", util.ErrInvalidQueryParm,
 			"error", err,
 			"input value", userId, projectNo, trainNo,
-		)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInvalidQueryParm)
-		return
-	}
-
-	epochs, err := h.EpochRepository.FindAll(WithTrainTrainId(train.Id))
-	if err != nil {
-		log.Warnw(
-			"Can't query with train id",
-			"error code", util.ErrInvalidQueryParm,
-			"error", err,
-			"input value", train.Id,
 		)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInvalidQueryParm)
 		return
@@ -528,7 +516,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithTrainTrainId(trainId))
+	train, err := h.TrainRepository.Find(WithEpochTrainId(trainId))
 	if err != nil {
 		log.Warnw(
 			"Can't query with train id",
