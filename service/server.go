@@ -68,7 +68,10 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/logout", auth.LogoutHandler).Methods(_Delete...)
 
 	// image
-	authRouter.HandleFunc("/api/image", e.UploadImageHandler).Methods(_Post...)
+	imageHandler := ImageHandler{
+		ImageRepository: repository.NewImageMysqlRepository(db),
+	}
+	authRouter.HandleFunc("/api/image", imageHandler.UploadImage).Methods(_Post...)
 
 	// user
 	router.HandleFunc("/api/user", e.SignUpHandler).Methods(_Post...)
