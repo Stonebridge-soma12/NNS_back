@@ -21,11 +21,6 @@ import (
 	"time"
 )
 
-type Env struct {
-	DB            *sqlx.DB
-	CodeConverter externalAPI.CodeConverter
-}
-
 var (
 	_Get    = []string{http.MethodGet, http.MethodOptions}
 	_Post   = []string{http.MethodPost, http.MethodOptions}
@@ -34,55 +29,51 @@ var (
 )
 
 func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
-	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		panic("failed to interface conversion")
-	}
-	defaultTransport := *defaultTransportPointer
-	defaultTransport.MaxIdleConns = 100
-	defaultTransport.MaxIdleConnsPerHost = 100
-
-	httpClient := &http.Client{
-		Transport: &defaultTransport,
-		Timeout:   time.Second * 10,
-	}
-
-	e := Env{
-		DB:            db,
-		CodeConverter: externalAPI.NewCodeConverter(httpClient),
-	}
 	log.Info("Start server")
+	httpClient := generateHttpClient()
+
+	projectRepo := repository.NewProjectMysqlRepository(db)
+	userRepo := repository.NewUserMysqlRepository(db)
+	imageRepo := repository.NewImageMysqlRepository(db)
 
 	// default router
 	router := mux.NewRouter()
 
-	auth := Auth{
-		Env:          e,
+	// auth
+	sessionService := SessionService{
 		SessionStore: sessionStore,
 	}
+	sessionHandler := SessionHandler{
+		UserRepository: userRepo,
+		SessionService: sessionService,
+	}
 	authRouter := router.PathPrefix("").Subrouter()
-	authRouter.Use(auth.middleware)
+	authRouter.Use(sessionService.middleware)
 
-	// auth
-	router.HandleFunc("/api/login", auth.LoginHandler).Methods(_Post...)
-	authRouter.HandleFunc("/api/logout", auth.LogoutHandler).Methods(_Delete...)
+	router.HandleFunc("/api/login", sessionHandler.LoginHandler).Methods(_Post...)
+	authRouter.HandleFunc("/api/logout", sessionHandler.LogoutHandler).Methods(_Delete...)
 
 	// image
 	imageHandler := ImageHandler{
-		ImageRepository: repository.NewImageMysqlRepository(db),
+		ImageRepository: imageRepo,
 	}
 	authRouter.HandleFunc("/api/image", imageHandler.UploadImage).Methods(_Post...)
 
 	// user
-	router.HandleFunc("/api/user", e.SignUpHandler).Methods(_Post...)
-	authRouter.HandleFunc("/api/user", e.GetUserHandler).Methods(_Get...)
-	authRouter.HandleFunc("/api/user", e.UpdateUserHandler).Methods(_Put...)
-	authRouter.HandleFunc("/api/user/password", e.UpdateUserPasswordHandler).Methods(_Put...)
-	authRouter.HandleFunc("/api/user", auth.DeleteUserHandler).Methods(_Delete...)
+	userHandler := UserHandler{
+		UserRepository:  userRepo,
+		ImageRepository: imageRepo,
+		SessionService:  sessionService,
+	}
+	router.HandleFunc("/api/user", userHandler.SignUpHandler).Methods(_Post...)
+	authRouter.HandleFunc("/api/user", userHandler.GetUserHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/user", userHandler.UpdateUserHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/user/password", userHandler.UpdateUserPasswordHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/user", userHandler.DeleteUserHandler).Methods(_Delete...)
 
 	// project
 	projectHandler := ProjectHandler{
-		ProjectRepository: repository.NewProjectMysqlRepository(db),
+		ProjectRepository: projectRepo,
 		CodeConverter:     externalAPI.NewCodeConverter(httpClient),
 	}
 	authRouter.HandleFunc("/api/projects", projectHandler.GetProjectListHandler).Methods(_Get...)
@@ -101,9 +92,8 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", projectHandler.GenerateShareKeyHandler).Methods(_Get...)
 
-
 	// web socket
-	hub := ws.NewHub(e.DB)
+	hub := ws.NewHub(db)
 
 	//router.HandleFunc("/ws", hub.WsHandler)
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
@@ -163,7 +153,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	// Train Handler
 	trainHandler := train.Handler{
 		Fitter:            externalAPI.NewFitter(httpClient),
-		ProjectRepository: repository.NewProjectMysqlRepository(db),
+		ProjectRepository: projectRepo,
 		TrainRepository: &train.TrainDbRepository{
 			DB: db,
 		},
@@ -203,4 +193,19 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	}
 	//log.Fatal(srv.ListenAndServeTLS("server.crt", "server.key"))
 	log.Fatal(srv.ListenAndServe())
+}
+
+func generateHttpClient() *http.Client {
+	defaultTransportPointer, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		panic("failed to interface conversion")
+	}
+	defaultTransport := *defaultTransportPointer
+	defaultTransport.MaxIdleConns = 100
+	defaultTransport.MaxIdleConnsPerHost = 100
+
+	return &http.Client{
+		Transport: &defaultTransport,
+		Timeout:   time.Second * 10,
+	}
 }

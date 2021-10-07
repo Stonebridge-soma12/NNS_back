@@ -19,7 +19,7 @@ func NewUserMysqlRepository(db *sqlx.DB) UserRepository {
 	}
 }
 
-func (r *userRepositoryImpl) SelectUser(classifier SelectProjectClassifier) (model.User, error) {
+func (r *userRepositoryImpl) SelectUser(classifier SelectUserClassifier) (model.User, error) {
 	builder := squirrel.Select(
 		"u.id",
 		"u.name",
@@ -34,7 +34,7 @@ func (r *userRepositoryImpl) SelectUser(classifier SelectProjectClassifier) (mod
 		"u.update_time").
 		From("user u").
 		Where(squirrel.Eq{"u.status": util.StatusEXIST})
-	classifier.classify(&builder)
+	classifier.userClassify(&builder)
 	query, args, err := builder.ToSql()
 	if err != nil {
 		return model.User{}, errors.Wrap(err, "failed to build sql")
@@ -101,5 +101,3 @@ func (r *userRepositoryImpl) Delete(user model.User) error {
 	user.Status = util.StatusDELETED
 	return r.Update(user)
 }
-
-

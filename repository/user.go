@@ -6,7 +6,7 @@ import (
 )
 
 type UserRepository interface {
-	SelectUser(classifier SelectProjectClassifier) (model.User, error)
+	SelectUser(classifier SelectUserClassifier) (model.User, error)
 	Insert(user model.User) (int64, error)
 	Update(user model.User) error
 	Delete(user model.User) error
