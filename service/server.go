@@ -81,21 +81,26 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/user", auth.DeleteUserHandler).Methods(_Delete...)
 
 	// project
-	authRouter.HandleFunc("/api/projects", e.GetProjectListHandler).Methods(_Get...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.GetProjectHandler).Methods(_Get...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.GetProjectContentHandler).Methods(_Get...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.GetProjectConfigHandler).Methods(_Get...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/code", e.GetPythonCodeHandler).Methods(_Get...)
+	projectHandler := ProjectHandler{
+		ProjectRepository: repository.NewProjectMysqlRepository(db),
+		CodeConverter:     externalAPI.NewCodeConverter(httpClient),
+	}
+	authRouter.HandleFunc("/api/projects", projectHandler.GetProjectListHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", projectHandler.GetProjectHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/content", projectHandler.GetProjectContentHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/config", projectHandler.GetProjectConfigHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/code", projectHandler.GetPythonCodeHandler).Methods(_Get...)
 
-	authRouter.HandleFunc("/api/project", e.CreateProjectHandler).Methods(_Post...)
+	authRouter.HandleFunc("/api/project", projectHandler.CreateProjectHandler).Methods(_Post...)
 
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/info", e.UpdateProjectInfoHandler).Methods(_Put...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/content", e.UpdateProjectContentHandler).Methods(_Put...)
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/config", e.UpdateProjectConfigHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/info", projectHandler.UpdateProjectInfoHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/content", projectHandler.UpdateProjectContentHandler).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/config", projectHandler.UpdateProjectConfigHandler).Methods(_Put...)
 
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", e.DeleteProjectHandler).Methods(_Delete...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", projectHandler.DeleteProjectHandler).Methods(_Delete...)
 
-	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", e.GenerateShareKeyHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", projectHandler.GenerateShareKeyHandler).Methods(_Get...)
+
 
 	// web socket
 	hub := ws.NewHub(e.DB)

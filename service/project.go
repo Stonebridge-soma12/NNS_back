@@ -11,11 +11,17 @@ import (
 	"nns_back/externalAPI"
 	"nns_back/log"
 	"nns_back/model"
+	"nns_back/repository"
 	"nns_back/util"
 	"strconv"
 	"time"
 	"unicode/utf8"
 )
+
+type ProjectHandler struct {
+	ProjectRepository repository.ProjectRepository
+	CodeConverter     externalAPI.CodeConverter
+}
 
 type GetProjectListResponseBody struct {
 	Projects   []GetProjectListResponseProjectBody `json:"projects"`
@@ -29,7 +35,7 @@ type GetProjectListResponseProjectBody struct {
 	LastModify  time.Time `json:"lastModify"`
 }
 
-func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -41,46 +47,44 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 
 	// query params
 	var (
-		sortOrder    model.ProjectSortOrder
-		filterType   model.ProjectFilterType
+		sortOrder    repository.ProjectSortOrder
+		filterType   repository.ProjectFilterType
 		filterString string
 	)
 
 	switch r.URL.Query().Get("sort") {
 	case "createTimeAsc":
-		sortOrder = model.OrderByCreateTimeAsc
+		sortOrder = repository.OrderByCreateTimeAsc
 	case "createTimeDesc":
-		sortOrder = model.OrderByCreateTimeDesc
+		sortOrder = repository.OrderByCreateTimeDesc
 	case "updateTimeAsc":
-		sortOrder = model.OrderByUpdateTimeAsc
+		sortOrder = repository.OrderByUpdateTimeAsc
 	case "updateTimeDesc":
-		sortOrder = model.OrderByUpdateTimeDesc
+		sortOrder = repository.OrderByUpdateTimeDesc
 	default:
-		sortOrder = model.OrderByCreateTimeAsc
+		sortOrder = repository.OrderByCreateTimeAsc
 	}
 
 	switch r.URL.Query().Get("filterType") {
 	case "name":
-		filterType = model.FilterByName
+		filterType = repository.FilterByName
 	case "nameLike":
-		filterType = model.FilterByNameLike
+		filterType = repository.FilterByNameLike
 	case "description":
-		filterType = model.FilterByDescription
+		filterType = repository.FilterByDescription
 	case "descriptionLike":
-		filterType = model.FilterByDescriptionLike
+		filterType = repository.FilterByDescriptionLike
 	case "nameOrDescription":
-		filterType = model.FilterByNameOrDescription
+		filterType = repository.FilterByNameOrDescription
 	case "nameOrDescriptionLike":
-		filterType = model.FilterByNameOrDescriptionLike
+		filterType = repository.FilterByNameOrDescriptionLike
 	default:
-		filterType = model.FilterByNone
+		filterType = repository.FilterByNone
 	}
 
 	filterString = r.URL.Query().Get("filterString")
 
-	count, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId),
-		model.OrderBy(sortOrder),
-		model.WithFilter(filterType, filterString))
+	count, err := h.ProjectRepository.SelectProjectCount(repository.ClassifiedByUserId(userId), repository.OrderBy(sortOrder), repository.WithFilter(filterType, filterString))
 	if err != nil {
 		log.Errorw("failed to select project count",
 			"error code", util.ErrInternalServerError,
@@ -92,9 +96,7 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 
 	pagination := util.NewPaginationFromRequest(r, int64(count))
 
-	projectList, err := model.SelectProjectList(e.DB, model.ClassifiedByUserId(userId), pagination.Offset(), pagination.Limit(),
-		model.OrderBy(sortOrder),
-		model.WithFilter(filterType, filterString))
+	projectList, err := h.ProjectRepository.SelectProjectList(repository.ClassifiedByUserId(userId), pagination.Offset(), pagination.Limit(), repository.OrderBy(sortOrder), repository.WithFilter(filterType, filterString))
 	if err != nil {
 		log.Errorw("failed to select project list",
 			"error code", util.ErrInternalServerError,
@@ -121,7 +123,7 @@ func (e Env) GetProjectListHandler(w http.ResponseWriter, r *http.Request) {
 	util.WriteJson(w, http.StatusOK, resp)
 }
 
-func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -141,7 +143,7 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -172,7 +174,7 @@ func (e Env) GetProjectHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -192,7 +194,7 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -216,7 +218,7 @@ func (e Env) GetProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	util.WriteJson(w, http.StatusOK, project.Content.Json)
 }
 
-func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -236,7 +238,7 @@ func (e Env) GetProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -300,7 +302,7 @@ type CreateProjectResponseBody struct {
 	ProjectNo int `json:"projectNo"`
 }
 
-func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := CreateProjectRequestBody{}
 	if err := util.BindJson(r.Body, &reqBody); err != nil {
 		log.Warnw("failed to bind request body to json",
@@ -320,7 +322,7 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check project name duplicate
-	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name)); err != sql.ErrNoRows {
+	if _, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectName(userId, reqBody.Name)); err != sql.ErrNoRows {
 		if err != nil {
 			log.Errorw("failed to select project with name",
 				"error code", util.ErrInternalServerError,
@@ -340,7 +342,7 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get exist project count
-	itemCount, err := model.SelectProjectCount(e.DB, model.ClassifiedByUserId(userId), model.WithStatus(util.StatusNONE))
+	itemCount, err := h.ProjectRepository.SelectProjectCount(repository.ClassifiedByUserId(userId), repository.WithStatus(util.StatusNONE))
 	if err != nil {
 		log.Errorw("failed to select project count",
 			"error code", util.ErrInternalServerError,
@@ -355,7 +357,7 @@ func (e Env) CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 
 	// create new project and save to database
 	project := model.NewProject(userId, newProjectNo, reqBody.Name, reqBody.Description)
-	if _, err := project.Insert(e.DB); err != nil {
+	if _, err := h.ProjectRepository.Insert(project); err != nil {
 		log.Errorw("failed to insert new project",
 			"error code", util.ErrInternalServerError,
 			"error", err,
@@ -385,7 +387,7 @@ func (u UpdateProjectInfoRequestBody) Validate() error {
 }
 
 // UpdateProjectInfoHandler update project name, description
-func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -415,7 +417,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get project
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -437,7 +439,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check project name duplicate
-	if _, err := model.SelectProject(e.DB, model.ClassifiedByProjectName(userId, reqBody.Name), model.WithExcludeProjectId(project.Id)); err != sql.ErrNoRows {
+	if _, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectName(userId, reqBody.Name), repository.WithExcludeProjectId(project.Id)); err != sql.ErrNoRows {
 		if err != nil {
 			log.Errorw("failed to select project with name",
 				"error code", util.ErrInternalServerError,
@@ -459,7 +461,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 	// update project
 	project.Name = reqBody.Name
 	project.Description = reqBody.Description
-	if err := project.Update(e.DB); err != nil {
+	if err := h.ProjectRepository.Update(project); err != nil {
 		log.Errorw("failed to update project",
 			"error code", util.ErrInternalServerError,
 			"error", err,
@@ -472,7 +474,7 @@ func (e Env) UpdateProjectInfoHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProjectContentHandler update project content
-func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -512,7 +514,7 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// get project
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -535,7 +537,7 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 
 	// update project
 	project.Content.Json = reqBodyBytes
-	if err := project.Update(e.DB); err != nil {
+	if err := h.ProjectRepository.Update(project); err != nil {
 		log.Errorw("failed to update project",
 			"error code", util.ErrInternalServerError,
 			"error", err,
@@ -548,7 +550,7 @@ func (e Env) UpdateProjectContentHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // UpdateProjectConfigHandler update project config
-func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -588,7 +590,7 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// get project
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -611,7 +613,7 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 
 	// update project
 	project.Config.Json = reqBodyBytes
-	if err := project.Update(e.DB); err != nil {
+	if err := h.ProjectRepository.Update(project); err != nil {
 		log.Errorw("failed to update project",
 			"error code", util.ErrInternalServerError,
 			"error", err,
@@ -623,7 +625,7 @@ func (e Env) UpdateProjectConfigHandler(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -644,7 +646,7 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get project
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -665,7 +667,7 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := project.Delete(e.DB); err != nil {
+	if err := h.ProjectRepository.Delete(project); err != nil {
 		log.Errorw("failed to delete project",
 			"error code", util.ErrInternalServerError,
 			"error", err,
@@ -677,7 +679,7 @@ func (e Env) DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -697,7 +699,7 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -725,7 +727,7 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send request
-	resp, err := e.CodeConverter.CodeConvert(payload)
+	resp, err := h.CodeConverter.CodeConvert(payload)
 	if err != nil {
 		log.Errorw("failed to generate python code",
 			"error code", util.ErrInternalServerError,
@@ -747,7 +749,7 @@ func (e Env) GetPythonCodeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (e Env) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
 	if err != nil {
 		log.Warnw("failed to convert projectNo to int",
@@ -767,7 +769,7 @@ func (e Env) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := model.SelectProject(e.DB, model.ClassifiedByProjectNo(userId, projectNo))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("result of select project is empty",
@@ -792,7 +794,7 @@ func (e Env) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
 		String: uuid.New().String(),
 		Valid:  true,
 	}
-	if err := project.Update(e.DB); err != nil {
+	if err := h.ProjectRepository.Update(project); err != nil {
 		log.Errorw("failed to update project",
 			"error code", util.ErrInternalServerError,
 			"error", err,
