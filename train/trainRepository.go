@@ -1,6 +1,6 @@
 package train
 
-import "nns_back/query"
+import "github.com/elixter/Querybuilder"
 
 //go:generate mockery --name TrainRepository --inpackage
 type TrainRepository interface {
