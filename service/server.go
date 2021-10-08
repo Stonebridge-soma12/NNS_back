@@ -93,7 +93,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", projectHandler.GenerateShareKeyHandler).Methods(_Get...)
 
 	// web socket
-	hub := ws.NewHub(db)
+	hub := ws.NewHub(db, projectRepo, userRepo)
 
 	//router.HandleFunc("/ws", hub.WsHandler)
 	authRouter.HandleFunc("/ws/{key}", hub.WsHandler)
