@@ -5,17 +5,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/sessions"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"nns_back/log"
-	"nns_back/model"
+	"nns_back/repository"
 	"nns_back/util"
 )
 
-type Auth struct {
-	Env
-
-	SessionStore sessions.Store
+type SessionHandler struct {
+	UserRepository repository.UserRepository
+	SessionService SessionService
 }
 
 const _sessionCookieName = "NNS"
@@ -30,7 +30,7 @@ type LoginHandlerRequestBody struct {
 }
 
 // TODO: Support social login
-func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
+func (h *SessionHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := LoginHandlerRequestBody{}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		log.Warnw("failed to json decode request body",
@@ -40,7 +40,7 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := model.SelectUser(a.DB, model.ClassifiedByLoginId(reqBody.ID))
+	user, err := h.UserRepository.SelectUser(repository.ClassifiedByLoginId(reqBody.ID))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// invalid login id
@@ -78,23 +78,8 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := a.SessionStore.Get(r, _sessionCookieName)
-	if err != nil {
-		log.Errorw("failed to session store get",
-			"error code", util.ErrInternalServerError,
-			"error", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-
-	session.Values["authenticated"] = true
-	session.Values["userId"] = user.Id
-	session.Options.SameSite = http.SameSiteNoneMode
-	session.Options.Secure = true
-	session.Options.HttpOnly = true
-	if err := session.Save(r, w); err != nil {
-		log.Errorw("failed to save session",
-			"error code", util.ErrInternalServerError,
+	if err := h.SessionService.Login(w, r, user.Id); err != nil {
+		log.Errorw("failed to login",
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -103,14 +88,43 @@ func (a Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (a Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	session, err := a.SessionStore.Get(r, _sessionCookieName)
-	if err != nil {
-		log.Errorw("failed to session store get",
-			"error code", util.ErrInternalServerError,
+func (h *SessionHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	if err := h.SessionService.Logout(w, r); err != nil {
+		log.Errorw("failed to logout",
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type SessionService struct {
+	SessionStore   sessions.Store
+}
+
+func (s *SessionService) Login(w http.ResponseWriter, r *http.Request, userId int64) error {
+	session, err := s.SessionStore.Get(r, _sessionCookieName)
+	if err != nil {
+		return errors.Wrap(err, "failed to session store get")
+	}
+
+	session.Values["authenticated"] = true
+	session.Values["userId"] = userId
+	session.Options.SameSite = http.SameSiteNoneMode
+	session.Options.Secure = true
+	session.Options.HttpOnly = true
+	if err := session.Save(r, w); err != nil {
+		return errors.Wrap(err, "failed to save session")
+	}
+
+	return nil
+}
+
+func (s *SessionService) Logout(w http.ResponseWriter, r *http.Request) error {
+	session, err := s.SessionStore.Get(r, _sessionCookieName)
+	if err != nil {
+		return errors.Wrap(err, "failed to session store get")
 	}
 
 	session.Values["authenticated"] = false
@@ -118,19 +132,15 @@ func (a Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session.Options.Secure = true
 	session.Options.HttpOnly = true
 	if err := session.Save(r, w); err != nil {
-		log.Errorw("failed to save session",
-			"error code", util.ErrInternalServerError,
-			"error", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
+		return errors.Wrap(err, "failed to save session")
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
-func (a Auth) middleware(next http.Handler) http.Handler {
+func (s *SessionService) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session, err := a.SessionStore.Get(r, _sessionCookieName)
+		session, err := s.SessionStore.Get(r, _sessionCookieName)
 		if err != nil {
 			log.Errorw("failed to session store get",
 				"error code", util.ErrInternalServerError,
