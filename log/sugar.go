@@ -8,6 +8,8 @@ import (
 
 var defaultSugaredLogger *zap.SugaredLogger
 
+const _skipCallerCnt = 1
+
 func Init(level zapcore.Level) {
 	config := zap.NewProductionConfig()
 	config.DisableStacktrace = true
@@ -18,7 +20,7 @@ func Init(level zapcore.Level) {
 		panic(err)
 	}
 	defer logger.Sync()
-	defaultSugaredLogger = logger.Sugar()
+	defaultSugaredLogger = logger.WithOptions(zap.AddCallerSkip(_skipCallerCnt)).Sugar()
 }
 
 // Debug uses fmt.Sprint to construct and log a message.
