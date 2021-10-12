@@ -8,12 +8,19 @@ import (
 	"net/http"
 	"nns_back/log"
 	"nns_back/model"
+	"nns_back/repository"
 	"nns_back/util"
 	"regexp"
 	"time"
 	"unicode"
 	"unicode/utf8"
 )
+
+type UserHandler struct {
+	UserRepository  repository.UserRepository
+	ImageRepository repository.ImageRepository
+	SessionService  SessionService
+}
 
 type SignUpHandlerRequestBody struct {
 	ID string `json:"id"`
@@ -83,7 +90,7 @@ next:
 const defaultUserProfileImage = "https://s3.ap-northeast-2.amazonaws.com/image.nns/default_profile.png"
 
 // TODO: email authentication
-func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	// bind request body
 	reqBody := SignUpHandlerRequestBody{}
 	if err := util.BindJson(r.Body, &reqBody); err != nil {
@@ -95,7 +102,7 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check ID duplication
-	if _, err := model.SelectUser(e.DB, model.ClassifiedByLoginId(reqBody.ID)); err != sql.ErrNoRows {
+	if _, err := h.UserRepository.SelectUser(repository.ClassifiedByLoginId(reqBody.ID)); err != sql.ErrNoRows {
 		if err != nil {
 			// error occur
 			log.Errorw("failed to select user",
@@ -125,7 +132,7 @@ func (e Env) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 		"hashed password len", len(hashedPassword))
 
 	user := model.NewUser(reqBody.ID, hashedPassword)
-	if _, err := user.Insert(e.DB); err != nil {
+	if _, err := h.UserRepository.Insert(user); err != nil {
 		log.Errorw("failed to insert user",
 			"error code", util.ErrInternalServerError,
 			"error", err)
@@ -150,7 +157,7 @@ type GetUserHandlerResponseBody struct {
 }
 
 // TODO: Email verification, WebSite url syntax validation
-func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -160,7 +167,7 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
+	user, err := h.UserRepository.SelectUser(repository.ClassifiedById(userId))
 	if err != nil {
 		log.Errorw("failed to select user",
 			"error code", util.ErrInternalServerError,
@@ -173,7 +180,7 @@ func (e Env) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	profileImageId := int64(0)
 	profileImageUrl := defaultUserProfileImage
 	if user.ProfileImage.Valid {
-		image, err := model.SelectImage(e.DB, userId, user.ProfileImage.Int64)
+		image, err := h.ImageRepository.SelectImage(userId, user.ProfileImage.Int64)
 		if err != nil {
 			log.Errorw("failed to select image",
 				"error code", util.ErrInternalServerError,
@@ -240,7 +247,7 @@ func checkUserDescriptionLength(userDescription string) error {
 	return nil
 }
 
-func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -259,7 +266,7 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
+	user, err := h.UserRepository.SelectUser(repository.ClassifiedById(userId))
 	if err != nil {
 		log.Errorw("failed to select user",
 			"error code", util.ErrInternalServerError,
@@ -283,7 +290,7 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if reqBody.ProfileImage != 0 {
-		if _, err := model.SelectImage(e.DB, userId, reqBody.ProfileImage); err != nil {
+		if _, err := h.ImageRepository.SelectImage(userId, reqBody.ProfileImage); err != nil {
 			if err == sql.ErrNoRows {
 				log.Warnw("invalid image id",
 					"request image ID", reqBody.ProfileImage,
@@ -305,7 +312,7 @@ func (e Env) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		Valid: reqBody.ProfileImage != 0,
 	}
 
-	if err := user.Update(e.DB); err != nil {
+	if err := h.UserRepository.Update(user); err != nil {
 		log.Errorw("failed to update user",
 			"error code", util.ErrInternalServerError,
 			"error", err)
@@ -328,7 +335,7 @@ func (b UpdateUserPasswordHandlerRequestBody) Validate() error {
 	return nil
 }
 
-func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -360,7 +367,7 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		"hashed password", hashedPassword,
 		"hashed password len", len(hashedPassword))
 
-	user, err := model.SelectUser(e.DB, model.ClassifiedById(userId))
+	user, err := h.UserRepository.SelectUser(repository.ClassifiedById(userId))
 	if err != nil {
 		log.Errorw("failed to select user",
 			"error code", util.ErrInternalServerError,
@@ -374,7 +381,7 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		Valid: true,
 	}
 
-	if err := user.Update(e.DB); err != nil {
+	if err := h.UserRepository.Update(user); err != nil {
 		log.Errorw("failed to update user",
 			"error code", util.ErrInternalServerError,
 			"error", err)
@@ -385,7 +392,7 @@ func (e Env) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (a Auth) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -395,7 +402,7 @@ func (a Auth) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := model.SelectUser(a.DB, model.ClassifiedById(userId))
+	user, err := h.UserRepository.SelectUser(repository.ClassifiedById(userId))
 	if err != nil {
 		log.Errorw("failed to select user",
 			"error code", util.ErrInternalServerError,
@@ -404,7 +411,7 @@ func (a Auth) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := user.Delete(a.DB); err != nil {
+	if err := h.UserRepository.Delete(user); err != nil {
 		log.Errorw("failed to delete user",
 			"error code", util.ErrInternalServerError,
 			"error", err)
@@ -412,5 +419,12 @@ func (a Auth) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.LogoutHandler(w, r)
+	if err := h.SessionService.Logout(w, r); err != nil {
+		log.Errorw("failed to logout",
+			"error", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

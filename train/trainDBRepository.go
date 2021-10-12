@@ -1,8 +1,8 @@
 package train
 
 import (
+	"github.com/elixter/Querybuilder"
 	"github.com/jmoiron/sqlx"
-	"nns_back/query"
 )
 
 const (

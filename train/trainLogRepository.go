@@ -1,6 +1,6 @@
 package train
 
-import "nns_back/query"
+import "github.com/elixter/Querybuilder"
 
 type TrainLogRepository interface {
 	Insert(log TrainLog) error

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"nns_back/log"
 	"nns_back/model"
+	"nns_back/repository"
 	"nns_back/util"
 	"os"
 	"strings"
@@ -20,7 +21,11 @@ import (
 
 const _uploadImageFormFileKey = "image"
 
-func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
+type ImageHandler struct {
+	ImageRepository repository.ImageRepository
+}
+
+func (h *ImageHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	// maximum upload of 10 MB files
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		log.Errorw("failed to specifies a maximum file size.",
@@ -45,7 +50,7 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 		"file size", header.Size,
 		"MIME header", header.Header)
 
-	url, err := UploadImage(file, header.Header.Get("Content-Type"))
+	url, err := uploadImage(file, header.Header.Get("Content-Type"))
 	if err != nil {
 		log.Errorw("failed to upload image to s3",
 			"error code", util.ErrInternalServerError,
@@ -66,7 +71,7 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	img := model.NewImage(userId, url)
-	if img.Id, err = img.Insert(e.DB); err != nil {
+	if img.Id, err = h.ImageRepository.Insert(img); err != nil {
 		log.Errorw("failed to insert image",
 			"error code", util.ErrInternalServerError,
 			"error", err)
@@ -74,14 +79,13 @@ func (e Env) UploadImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	util.WriteJson(w, http.StatusCreated, util.ResponseBody{
-		"id": img.Id,
+		"id":  img.Id,
 		"url": img.Url,
 	})
 }
 
-func UploadImage(file io.Reader, contentType string) (string, error) {
+func uploadImage(file io.Reader, contentType string) (string, error) {
 	// put file to S3
 	awsAccessKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
 	awsSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")

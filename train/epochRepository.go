@@ -1,6 +1,6 @@
 package train
 
-import "nns_back/query"
+import "github.com/elixter/Querybuilder"
 
 type EpochRepository interface {
 	Insert(epoch Epoch) error

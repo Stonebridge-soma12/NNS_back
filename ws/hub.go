@@ -8,18 +8,20 @@ import (
 	"github.com/jmoiron/sqlx"
 	"net/http"
 	"nns_back/log"
-	"nns_back/model"
+	"nns_back/repository"
 )
 
 type Hub struct {
-	rooms map[string]*room
-	DB    *sqlx.DB
+	rooms             map[string]*room
+	ProjectRepository repository.ProjectRepository
+	UserRepository    repository.UserRepository
 }
 
-func NewHub(db *sqlx.DB) *Hub {
+func NewHub(db *sqlx.DB, projectRepository repository.ProjectRepository, userRepository repository.UserRepository) *Hub {
 	return &Hub{
-		rooms: make(map[string]*room),
-		DB:    db,
+		rooms:             make(map[string]*room),
+		ProjectRepository: projectRepository,
+		UserRepository:    userRepository,
 	}
 }
 
@@ -33,14 +35,14 @@ func (h *Hub) WsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := model.SelectUser(h.DB, model.ClassifiedById(userId))
+	user, err := h.UserRepository.SelectUser(repository.ClassifiedById(userId))
 	if err != nil {
 		log.Error(err)
 		http.Error(w, "failed to select user", http.StatusInternalServerError)
 		return
 	}
 
-	project, err := model.SelectProject(h.DB, model.ClassifiedByShareKey(key))
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByShareKey(key))
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Error(err)
