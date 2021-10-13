@@ -13,11 +13,11 @@ type Project struct {
 	UserId      int64          `db:"user_id"`
 	ProjectNo   int            `db:"project_no"`
 	Name        string         `db:"name"`
-	Description string        `db:"description"`
-	Config      util.NullJson `db:"config"`
-	Content     util.NullJson `db:"content"`
-	Status      util.Status   `db:"status"`
-	CreateTime  time.Time     `db:"create_time"`
+	Description string         `db:"description"`
+	Config      util.NullJson  `db:"config"`
+	Content     util.NullJson  `db:"content"`
+	Status      util.Status    `db:"status"`
+	CreateTime  time.Time      `db:"create_time"`
 	UpdateTime  time.Time      `db:"update_time"`
 }
 
@@ -38,12 +38,30 @@ func NewProject(userId int64, projectNo int, name, description string) Project {
 
 func DefaultConfig() util.NullJson {
 	defaultValue := map[string]interface{}{
-		"optimizer":     "adam",
-		"learning_rate": 0.001,
-		"loss":          "sparse_categorical_crossentropy",
-		"metrics":       []interface{}{"accuracy"},
-		"batch_size":    32,
-		"epochs":        10,
+		"optimizer_name": "Adam",
+		"optimizer_config": map[string]interface{}{
+			"learning_rate": 0.001,
+			"beta_1":        0.9,
+			"beta_2":        0.000,
+			"epsilon":       1e-07,
+			"amsgrad":       false,
+		},
+		"loss":       "binary_crossentropy",
+		"metrics":    []interface{}{"accuracy"},
+		"batch_size": 32,
+		"epochs":     10,
+		"early_stop": map[string]interface{}{
+			"usage":    true,
+			"monitor":  "loss",
+			"patience": 2,
+		},
+		"learning_rate_reduction": map[string]interface{}{
+			"usage":    true,
+			"monitor":  "val_accuracy",
+			"patience": 2,
+			"factor":   0.25,
+			"min_lr":   0.0000003,
+		},
 	}
 	defaultBytes, _ := json.Marshal(defaultValue)
 	return util.NullJson{
