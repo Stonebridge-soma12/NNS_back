@@ -19,7 +19,7 @@ func NewFitter(httpClient *http.Client) Fitter {
 }
 
 func (c *fitterImpl) Fit(payload FitRequestBody) (*http.Response, error) {
-	const requestUrl = "http://nnstudio.io/api/fit"
+	const requestUrl = "http://nnstudio.io:8081/api/fit"
 
 	jsoned, err := json.Marshal(payload)
 	if err != nil {
