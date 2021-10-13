@@ -80,7 +80,7 @@ const (
                 "data": {
                     "label": "InputNode_1",
                     "category": "Layer",
-                    "config": {
+                    "param": {
                         "shape": []
                     },
                     "type": "Input"
@@ -102,7 +102,7 @@ const (
             "id": "node_default_input_node_auto_created",
             "input": [],
             "output": [],
-            "config": {
+            "param": {
                 "shape": []
             }
         }
