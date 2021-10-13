@@ -36,48 +36,90 @@ func NewProject(userId int64, projectNo int, name, description string) Project {
 	}
 }
 
+const (
+	_defaultProjectConfig = `{
+    "optimizer_name": "Adam",
+    "optimizer_config": {
+        "learning_rate": 0.001,
+        "beta_1": 0.9,
+        "beta_2": 0.999,
+        "epsilon": 1e-07,
+        "amsgrad": false
+    },
+    "loss": "binary_crossentropy",
+    "metrics": [
+        "accuracy"
+    ],
+    "batch_size": 32,
+    "epochs": 10,
+    "early_stop": {
+        "usage": true,
+        "monitor": "loss",
+        "patience": 2
+    },
+    "learning_rate_reduction": {
+        "usage": true,
+        "monitor": "val_accuracy",
+        "patience": 2,
+        "factor": 0.25,
+        "min_lr": 0.0000003
+    }
+}`
+
+	_defaultProjectContent = `{
+    "output": "inputnode_1",
+    "flowState": {
+        "elements": [
+            {
+                "id": "node_default_input_node_auto_created",
+                "type": "Layer",
+                "position": {
+                    "x": 62.140625,
+                    "y": 86
+                },
+                "data": {
+                    "label": "InputNode_1",
+                    "category": "Layer",
+                    "config": {
+                        "shape": []
+                    },
+                    "type": "Input"
+                }
+            }
+        ],
+        "position": [
+            100,
+            100
+        ],
+        "zoom": 1
+    },
+    "input": "inputnode_1",
+    "layers": [
+        {
+            "category": "Layer",
+            "type": "Input",
+            "name": "inputnode_1",
+            "id": "node_default_input_node_auto_created",
+            "input": [],
+            "output": [],
+            "config": {
+                "shape": []
+            }
+        }
+    ]
+}`
+)
+
 func DefaultConfig() util.NullJson {
-	defaultValue := map[string]interface{}{
-		"optimizer_name": "Adam",
-		"optimizer_config": map[string]interface{}{
-			"learning_rate": 0.001,
-			"beta_1":        0.9,
-			"beta_2":        0.000,
-			"epsilon":       1e-07,
-			"amsgrad":       false,
-		},
-		"loss":       "binary_crossentropy",
-		"metrics":    []interface{}{"accuracy"},
-		"batch_size": 32,
-		"epochs":     10,
-		"early_stop": map[string]interface{}{
-			"usage":    true,
-			"monitor":  "loss",
-			"patience": 2,
-		},
-		"learning_rate_reduction": map[string]interface{}{
-			"usage":    true,
-			"monitor":  "val_accuracy",
-			"patience": 2,
-			"factor":   0.25,
-			"min_lr":   0.0000003,
-		},
-	}
-	defaultBytes, _ := json.Marshal(defaultValue)
 	return util.NullJson{
-		Json:  json.RawMessage(defaultBytes),
+		Json:  json.RawMessage(_defaultProjectConfig),
 		Valid: true,
 	}
 }
 
 func DefaultContent() util.NullJson {
-	defaultValue := map[string]interface{}{
-		"output": "",
-		"layers": []interface{}{},
-	}
-	defaultBytes, _ := json.Marshal(defaultValue)
 	return util.NullJson{
-		Json:  json.RawMessage(defaultBytes),
+		Json:  json.RawMessage(_defaultProjectContent),
 		Valid: true,
 	}
 }
