@@ -20,7 +20,7 @@ import (
 
 const (
 	saveTrainedModelFormFileKey = "model"
-	trainModelContentType = "application/zip"
+	trainModelContentType       = "application/zip"
 )
 
 type Handler struct {
@@ -36,6 +36,7 @@ type GetTrainHistoryListResponseBody struct {
 }
 
 type GetTrainHistoryListResponseHistoryBody struct {
+	TrainNo                    int64           `json:"trainNo"`
 	Name                       string          `json:"name"`
 	Status                     string          `json:"status"`
 	Acc                        float64         `json:"acc"`
@@ -98,24 +99,25 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 	for _, history := range trainList {
 		if history.Status == TrainStatusFinish || history.Status == TrainStatusTrain {
 			resp.TrainHistories = append(resp.TrainHistories, GetTrainHistoryListResponseHistoryBody{
-				Name: history.Name,
-				Status: history.Status,
-				Acc: history.Acc,
-				Loss: history.Loss,
-				ValAcc: history.ValAcc,
-				ValLoss: history.ValLoss,
-				Epochs: history.Epochs,
-				ResultUrl: history.ResultUrl,// saved model url
-				TrainDatasetUrl: history.TrainConfig.TrainDatasetUrl,
-				ValidDatasetUrl: history.TrainConfig.ValidDatasetUrl,
-				DatasetShuffle: history.TrainConfig.DatasetShuffle,
-				DatasetLabel: history.TrainConfig.DatasetLabel,
-				DatasetNormalizationUsage: history.TrainConfig.DatasetNormalizationUsage,
+				TrainNo:                    history.TrainNo,
+				Name:                       history.Name,
+				Status:                     history.Status,
+				Acc:                        history.Acc,
+				Loss:                       history.Loss,
+				ValAcc:                     history.ValAcc,
+				ValLoss:                    history.ValLoss,
+				Epochs:                     history.Epochs,
+				ResultUrl:                  history.ResultUrl, // saved model url
+				TrainDatasetUrl:            history.TrainConfig.TrainDatasetUrl,
+				ValidDatasetUrl:            history.TrainConfig.ValidDatasetUrl,
+				DatasetShuffle:             history.TrainConfig.DatasetShuffle,
+				DatasetLabel:               history.TrainConfig.DatasetLabel,
+				DatasetNormalizationUsage:  history.TrainConfig.DatasetNormalizationUsage,
 				DatasetNormalizationMethod: history.TrainConfig.DatasetNormalizationMethod,
-				ModelContent: history.TrainConfig.ModelContent,
-				ModelConfig: history.TrainConfig.ModelConfig,
-				CreateTime: history.TrainConfig.CreateTime,
-				UpdateTime: history.TrainConfig.UpdateTime,
+				ModelContent:               history.TrainConfig.ModelContent,
+				ModelConfig:                history.TrainConfig.ModelConfig,
+				CreateTime:                 history.TrainConfig.CreateTime,
+				UpdateTime:                 history.TrainConfig.UpdateTime,
 			})
 		}
 	}
