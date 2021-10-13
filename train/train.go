@@ -46,15 +46,11 @@ type TrainConfig struct {
 }
 
 const (
-	TrainStatusFinish = "FIN"
-	TrainStatusTrain  = "TRAIN"
-	TrainStatusError  = "ERR"
-	TrainStatusDelete = "DEL"
-
-	TrainStatusFinishDB = "'FIN'"
-	TrainStatusTrainDB  = "'TRAIN'"
-	TrainStatusErrorDB  = "'ERR'"
-	TrainStatusDeleteDB = "'DEL'"
+	TrainStatusFinish  = "FIN"
+	TrainStatusTrain   = "TRAIN"
+	TrainStatusError   = "ERR"
+	TrainStatusDelete  = "DEL"
+	TrainStatusCreated = "CREATED"
 )
 
 func (t *Train) Bind(r *http.Request) error {

@@ -3,6 +3,7 @@ package train
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"io"
@@ -397,18 +398,18 @@ func isTrainable(trainRepository TrainRepository, userId int64) (bool, error){
 func startNewTrain(trainRepository TrainRepository, projectRepository repository.ProjectRepository, fitter externalAPI.Fitter, userId int64, projectNo int, body NewTrainHandlerRequestBody) error {
 	project, err := projectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "SelectProject(userId: %d, projectNo: %d)", userId, projectNo)
 	}
 
 	nextTrainNo, err := trainRepository.FindNextTrainNo(userId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "FindNextTrainNo(userId: %d)", userId)
 	}
 
 	newTrain := createNewTrain(userId, nextTrainNo, project, body)
 	newTrain.Id, err = saveTrain(trainRepository, newTrain)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "saveTrain(trainRepository: %v, newTrain: %v", trainRepository, newTrain)
 	}
 
 	payload := externalAPI.FitRequestBody{
@@ -428,7 +429,16 @@ func startNewTrain(trainRepository TrainRepository, projectRepository repository
 		},
 	}
 
-	return fitRequest(fitter, payload)
+	if err := fitRequest(fitter, payload); err != nil {
+		return errors.Wrapf(err, "fitRequest(fitter: %v, payload: %v", fitter, payload)
+	}
+
+	newTrain.Status = TrainStatusTrain
+	if err := trainRepository.Update(newTrain); err != nil {
+		return errors.Wrapf(err, "Update(train: %v)", newTrain)
+	}
+
+	return nil
 }
 
 func createNewTrain(userId int64, nextTrainNo int64, project model.Project, body NewTrainHandlerRequestBody) Train {
@@ -437,7 +447,7 @@ func createNewTrain(userId int64, nextTrainNo int64, project model.Project, body
 		UserId:    userId,
 		TrainNo:   nextTrainNo,
 		ProjectId: project.Id,
-		Status:    TrainStatusTrain,
+		Status:    TrainStatusCreated,
 		//Acc:       0,
 		//Loss:      0,
 		//ValAcc:    0,
@@ -475,12 +485,12 @@ func saveTrain(trainRepository TrainRepository, train Train) (int64, error) {
 func fitRequest(fitter externalAPI.Fitter, payload externalAPI.FitRequestBody) error {
 	resp, err := fitter.Fit(payload)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "Fit(payload: %v)", payload)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("failed to Fit")
+		return errors.New(fmt.Sprintf("failed to Fit: response status code : %d", resp.StatusCode))
 	}
 	return nil
 }
