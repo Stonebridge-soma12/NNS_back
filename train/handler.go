@@ -125,6 +125,19 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 	util.WriteJson(w, http.StatusOK, resp)
 }
 
+type trainHistoryEpochListResponseBodyBody struct {
+	EpochNo      int     `json:"epochNo"`
+	Acc          float64 `json:"acc"`
+	Loss         float64 `json:"loss"`
+	ValAcc       float64 `json:"valAcc"`
+	ValLoss      float64 `json:"valLoss"`
+	LearningRate float64 `json:"learningRate"`
+}
+
+type trainHistoryEpochListResponseBody struct {
+	Epochs []trainHistoryEpochListResponseBodyBody `json:"epochs"`
+}
+
 func (h *Handler) GetTrainHistoryEpochsHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -173,7 +186,19 @@ func (h *Handler) GetTrainHistoryEpochsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	util.WriteJson(w, http.StatusOK, epochs)
+	var resp trainHistoryEpochListResponseBody
+	for _, epoch := range epochs {
+		resp.Epochs = append(resp.Epochs, trainHistoryEpochListResponseBodyBody{
+			EpochNo:      epoch.Epoch,
+			Acc:          epoch.Acc,
+			Loss:         epoch.Loss,
+			ValAcc:       epoch.ValAcc,
+			ValLoss:      epoch.ValLoss,
+			LearningRate: epoch.LearningRate,
+		})
+	}
+
+	util.WriteJson(w, http.StatusOK, resp)
 }
 
 func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -383,7 +408,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func isTrainable(trainRepository TrainRepository, userId int64) (bool, error){
+func isTrainable(trainRepository TrainRepository, userId int64) (bool, error) {
 	trainingCount, err := trainRepository.CountCurrentTraining(userId)
 	if err != nil {
 		return false, err
