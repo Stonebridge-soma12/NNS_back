@@ -3,7 +3,9 @@ package externalAPI
 import (
 	"bytes"
 	"encoding/json"
+	"moul.io/http2curl"
 	"net/http"
+	"nns_back/log"
 )
 
 type fitterImpl struct {
@@ -17,7 +19,7 @@ func NewFitter(httpClient *http.Client) Fitter {
 }
 
 func (c *fitterImpl) Fit(payload FitRequestBody) (*http.Response, error) {
-	const requestUrl = "http://54.180.153.56:8080/fit"
+	const requestUrl = "http://nnstudio.io:8081/api/fit"
 
 	jsoned, err := json.Marshal(payload)
 	if err != nil {
@@ -30,6 +32,13 @@ func (c *fitterImpl) Fit(payload FitRequestBody) (*http.Response, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	command, err := http2curl.GetCurlCommand(req)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(command)
 
 	return c.httpClient.Do(req)
 }

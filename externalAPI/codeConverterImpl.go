@@ -3,7 +3,9 @@ package externalAPI
 import (
 	"bytes"
 	"encoding/json"
+	"moul.io/http2curl"
 	"net/http"
+	"nns_back/log"
 )
 
 type codeConverterImpl struct {
@@ -17,7 +19,7 @@ func NewCodeConverter(httpClient *http.Client) CodeConverter {
 }
 
 func (c *codeConverterImpl) CodeConvert(payload CodeConvertRequestBody) (*http.Response, error) {
-	const requetsUrl = "http://54.180.153.56:8080/make-python"
+	const requetsUrl = "http://nnstudio.io:8081/api/python"
 
 	jsoned, err := json.Marshal(payload)
 	if err != nil {
@@ -30,6 +32,13 @@ func (c *codeConverterImpl) CodeConvert(payload CodeConvertRequestBody) (*http.R
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	command, err := http2curl.GetCurlCommand(req)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(command)
 
 	return c.httpClient.Do(req)
 }

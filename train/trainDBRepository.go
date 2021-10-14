@@ -1,6 +1,7 @@
 package train
 
 import (
+	"database/sql"
 	"github.com/elixter/Querybuilder"
 	"github.com/jmoiron/sqlx"
 )
@@ -87,6 +88,11 @@ WHERE t.user_id = ?
 ORDER BY t.train_no DESC
 LIMIT 1;
 `, userId).Scan(&lastTrainNo)
+
+	if err == sql.ErrNoRows {
+		lastTrainNo = 0
+		err = nil
+	}
 
 	return lastTrainNo + 1, err
 }
