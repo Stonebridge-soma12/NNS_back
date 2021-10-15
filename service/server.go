@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/dataset"
+	"nns_back/datasetConfig"
 	"nns_back/externalAPI"
 	"nns_back/log"
 	"nns_back/repository"
@@ -35,6 +36,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	projectRepo := repository.NewProjectMysqlRepository(db)
 	userRepo := repository.NewUserMysqlRepository(db)
 	imageRepo := repository.NewImageMysqlRepository(db)
+	datasetConfigRepo := datasetConfig.NewRepository(db)
 
 	// default router
 	router := mux.NewRouter()
@@ -91,6 +93,14 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}", projectHandler.DeleteProjectHandler).Methods(_Delete...)
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", projectHandler.GenerateShareKeyHandler).Methods(_Get...)
+
+	// dataset config
+	datasetConfigHandler := datasetConfig.NewHandler(projectRepo, datasetConfigRepo)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config", datasetConfigHandler.GetDatasetConfigList).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config/{datasetConfigId:[0-9]+}", datasetConfigHandler.GetDatasetConfig).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config", datasetConfigHandler.CreateDatasetConfig).Methods(_Post...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config/{datasetConfigId:[0-9]+}", datasetConfigHandler.UpdateDatasetConfig).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config/{datasetConfigId:[0-9]+}", datasetConfigHandler.DeleteDatasetConfig).Methods(_Delete...)
 
 	// web socket
 	hub := ws.NewHub(db, projectRepo, userRepo)
