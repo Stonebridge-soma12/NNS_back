@@ -122,6 +122,12 @@ func (h *handler) GetDatasetConfig(w http.ResponseWriter, r *http.Request) {
 	datasetConfigId, _ := util.Atoi64(mux.Vars(r)["datasetConfigId"])
 	datasetConfig, err := h.datasetConfigRepository.FindByUserIdAndId(userId, datasetConfigId)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Warnw("invalid datasetConfigId",
+				"requested id", datasetConfigId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+			return
+		}
 		log.Errorf("failed to FindByUserIdAndId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -220,6 +226,12 @@ func (h *handler) UpdateDatasetConfig(w http.ResponseWriter, r *http.Request) {
 	datasetConfigId, _ := util.Atoi64(mux.Vars(r)["datasetConfigId"])
 	datasetConfig, err := h.datasetConfigRepository.FindByUserIdAndId(userId, datasetConfigId)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Warnw("invalid datasetConfigId",
+				"requested id", datasetConfigId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+			return
+		}
 		log.Errorf("failed to FindByUserIdAndId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -263,6 +275,12 @@ func (h *handler) DeleteDatasetConfig(w http.ResponseWriter, r *http.Request) {
 	datasetConfigId, _ := util.Atoi64(mux.Vars(r)["datasetConfigId"])
 	datasetConfig, err := h.datasetConfigRepository.FindByUserIdAndId(userId, datasetConfigId)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Warnw("invalid datasetConfigId",
+				"requested id", datasetConfigId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+			return
+		}
 		log.Errorf("failed to FindByUserIdAndId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
