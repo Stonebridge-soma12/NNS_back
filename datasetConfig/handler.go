@@ -251,5 +251,28 @@ func (h *handler) UpdateDatasetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) DeleteDatasetConfig(w http.ResponseWriter, r *http.Request) {
-	
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		log.Errorw("failed to conversion interface to int64",
+			"error code", util.ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	datasetConfigId, _ := util.Atoi64(mux.Vars(r)["datasetConfigId"])
+	datasetConfig, err := h.datasetConfigRepository.FindByUserIdAndId(userId, datasetConfigId)
+	if err != nil {
+		log.Errorf("failed to FindByUserIdAndId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if err := h.datasetConfigRepository.Delete(datasetConfig); err != nil {
+		log.Errorf("failed to Delete(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
