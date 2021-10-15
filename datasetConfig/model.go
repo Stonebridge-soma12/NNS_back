@@ -7,7 +7,7 @@ import (
 )
 
 type DatasetConfig struct {
-	ID                  int64          `db:"id"`
+	Id                  int64          `db:"id"`
 	ProjectId           int64          `db:"project_id"`
 	DatasetId           int64          `db:"dataset_id"`
 	Name                string         `db:"name"`

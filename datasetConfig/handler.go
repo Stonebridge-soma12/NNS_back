@@ -1,7 +1,10 @@
 package datasetConfig
 
 import (
+	"database/sql"
+	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	"net/http"
 	"nns_back/log"
 	"nns_back/repository"
@@ -32,6 +35,18 @@ type DatasetConfigDto struct {
 type DatasetConfigNormalizationDto struct {
 	Usage  bool   `json:"usage"`
 	Method string `json:"method"`
+}
+
+func (d DatasetConfigDto) Validate() error {
+	if d.Name == "" {
+		return errors.New("name is required")
+	}
+
+	if d.Label == "" {
+		return errors.New("label is required")
+	}
+
+	return nil
 }
 
 type GetDatasetConfigListResponseBody struct {
@@ -127,7 +142,61 @@ func (h *handler) GetDatasetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) CreateDatasetConfig(w http.ResponseWriter, r *http.Request) {
+	var requestBody DatasetConfigDto
+	if err := util.BindJson(r.Body, &requestBody); err != nil {
+		log.Warnw("failed to bind json",
+			"error", err)
+		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		return
+	}
 
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		log.Errorw("failed to conversion interface to int64",
+			"error code", util.ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	projectNo, _ := strconv.Atoi(mux.Vars(r)["projectNo"])
+	project, err := h.projectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
+	if err != nil {
+		log.Errorf("failed to SelectProject(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	newDatasetConfig := DatasetConfig{
+		ProjectId: project.Id,
+		DatasetId: requestBody.DatasetId,
+		Name:      requestBody.Name,
+		Shuffle:   requestBody.Shuffle,
+		NormalizationMethod: sql.NullString{
+			Valid:  requestBody.Normalization.Usage,
+			String: requestBody.Normalization.Method,
+		},
+		Label:  requestBody.Label,
+		Status: util.StatusEXIST,
+	}
+
+	newDatasetConfig.Id, err = h.datasetConfigRepository.Insert(newDatasetConfig)
+	if err != nil {
+		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+			if mysqlErr.Number == util.MysqlErrDupEntry {
+				log.Warnw("duplicate entity",
+					"requested dataset config name", newDatasetConfig.Name)
+				util.WriteError(w, http.StatusBadRequest, util.ErrDuplicate)
+				return
+			}
+		}
+
+		log.Errorf("failed to Insert(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (h *handler) UpdateDatasetConfig(w http.ResponseWriter, r *http.Request) {
