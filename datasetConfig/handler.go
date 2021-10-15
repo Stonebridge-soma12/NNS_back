@@ -2,7 +2,6 @@ package datasetConfig
 
 import (
 	"database/sql"
-	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"net/http"
@@ -25,6 +24,7 @@ func NewHandler(projectRepository repository.ProjectRepository, datasetConfigRep
 }
 
 type DatasetConfigDto struct {
+	Id            int64                         `json:"id"`
 	DatasetId     int64                         `json:"datasetId"`
 	Name          string                        `json:"name"`
 	Shuffle       bool                          `json:"shuffle"`
@@ -95,6 +95,7 @@ func (h *handler) GetDatasetConfigList(w http.ResponseWriter, r *http.Request) {
 
 	for _, datasetConfig := range datasetConfigList {
 		responseBody.DatasetConfigs = append(responseBody.DatasetConfigs, DatasetConfigDto{
+			Id:        datasetConfig.Id,
 			DatasetId: datasetConfig.DatasetId,
 			Name:      datasetConfig.Name,
 			Shuffle:   datasetConfig.Shuffle,
@@ -134,6 +135,7 @@ func (h *handler) GetDatasetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responseBody := DatasetConfigDto{
+		Id:        datasetConfig.Id,
 		DatasetId: datasetConfig.DatasetId,
 		Name:      datasetConfig.Name,
 		Shuffle:   datasetConfig.Shuffle,
@@ -186,17 +188,20 @@ func (h *handler) CreateDatasetConfig(w http.ResponseWriter, r *http.Request) {
 		Status: util.StatusEXIST,
 	}
 
+	// check name duplicate
+	if _, err := h.datasetConfigRepository.FindByProjectIdAndDatasetConfigName(project.Id, newDatasetConfig.Name); err == nil {
+		log.Warnw("duplicate entity",
+			"requested dataset config name", newDatasetConfig.Name)
+		util.WriteError(w, http.StatusBadRequest, util.ErrDuplicate)
+		return
+	} else if err != nil && err != sql.ErrNoRows {
+		log.Errorf("failed to FindByProjectIdAndDatasetConfigName(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
 	newDatasetConfig.Id, err = h.datasetConfigRepository.Insert(newDatasetConfig)
 	if err != nil {
-		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
-			if mysqlErr.Number == util.MysqlErrDupEntry {
-				log.Warnw("duplicate entity",
-					"requested dataset config name", newDatasetConfig.Name)
-				util.WriteError(w, http.StatusBadRequest, util.ErrDuplicate)
-				return
-			}
-		}
-
 		log.Errorf("failed to Insert(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -244,16 +249,27 @@ func (h *handler) UpdateDatasetConfig(w http.ResponseWriter, r *http.Request) {
 	datasetConfig.NormalizationMethod.String = requestBody.Normalization.Method
 	datasetConfig.Label = requestBody.Label
 
-	if err := h.datasetConfigRepository.Update(datasetConfig); err != nil {
-		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
-			if mysqlErr.Number == util.MysqlErrDupEntry {
-				log.Warnw("duplicate entity",
-					"requested dataset config name", requestBody.Name)
-				util.WriteError(w, http.StatusBadRequest, util.ErrDuplicate)
-				return
-			}
-		}
+	projectNo, _ := strconv.Atoi(mux.Vars(r)["projectNo"])
+	project, err := h.projectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
+	if err != nil {
+		log.Errorf("failed to SelectProject(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
 
+	// check name duplicate
+	if finded, err := h.datasetConfigRepository.FindByProjectIdAndDatasetConfigName(project.Id, datasetConfig.Name); err == nil && finded.Id != datasetConfig.Id {
+		log.Warnw("duplicate entity",
+			"requested dataset config name", datasetConfig.Name)
+		util.WriteError(w, http.StatusBadRequest, util.ErrDuplicate)
+		return
+	} else if err != nil && err != sql.ErrNoRows {
+		log.Errorf("failed to FindByProjectIdAndDatasetConfigName(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if err := h.datasetConfigRepository.Update(datasetConfig); err != nil {
 		log.Errorf("failed to Update(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return

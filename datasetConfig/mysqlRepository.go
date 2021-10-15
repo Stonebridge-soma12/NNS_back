@@ -13,13 +13,34 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &mysqlRepository{db: db}
 }
 
+func (r *mysqlRepository) FindByProjectIdAndDatasetConfigName(projectId int64, datasetConfigName string) (DatasetConfig, error) {
+	var result DatasetConfig
+	err := r.db.QueryRowx(`
+SELECT dc.id,
+       dc.project_id,
+       dc.dataset_id,
+       dc.name,
+       dc.shuffle,
+       dc.label,
+       dc.normalization_method,
+       dc.status,
+       dc.create_time,
+       dc.update_time
+FROM dataset_config dc
+         JOIN project p on dc.project_id = p.id
+WHERE p.id = ?
+  AND dc.name = ?
+  AND dc.status = 'EXIST';`, projectId, datasetConfigName).StructScan(&result)
+	return result, err
+}
+
 func (r *mysqlRepository) CountByProjectId(projectId int64) (int64, error) {
 	var count int64
 	err := r.db.QueryRowx(`
 SELECT COUNT(dc.id)
 FROM dataset_config dc
          JOIN project p on dc.project_id = p.id
-WHERE p.id = ?;`, projectId).Scan(&count)
+WHERE p.id = ? AND dc.status = 'EXIST';`, projectId).Scan(&count)
 
 	return count, err
 }
@@ -39,6 +60,7 @@ SELECT dc.id,
 FROM dataset_config dc
          JOIN project p on dc.project_id = p.id
 WHERE p.id = ?
+  AND dc.status = 'EXIST'
 ORDER BY dc.id ASC
 LIMIT ?, ?;`, projectId, offset, limit)
 	if err != nil {
@@ -76,7 +98,8 @@ FROM dataset_config dc
          JOIN project p on dc.project_id = p.id
          JOIN user u on p.user_id = u.id
 WHERE u.id = ?
-  AND dc.id = ?;`, userId, id).StructScan(&result)
+  AND dc.id = ?
+  AND dc.status = 'EXIST';`, userId, id).StructScan(&result)
 
 	return result, err
 }
@@ -113,7 +136,8 @@ SET project_id           = :project_id,
     shuffle              = :shuffle,
     label                = :label,
     normalization_method = :normalization_method,
-    status               = :status;`, datasetConfig)
+    status               = :status
+WHERE id = :id;`, datasetConfig)
 	return err
 }
 
