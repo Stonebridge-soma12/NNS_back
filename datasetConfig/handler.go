@@ -95,7 +95,35 @@ func (h *handler) GetDatasetConfigList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetDatasetConfig(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		log.Errorw("failed to conversion interface to int64",
+			"error code", util.ErrInternalServerError,
+			"context value", r.Context().Value("userId"))
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
 
+	datasetConfigId, _ := util.Atoi64(mux.Vars(r)["datasetConfigId"])
+	datasetConfig, err := h.datasetConfigRepository.FindByUserIdAndId(userId, datasetConfigId)
+	if err != nil {
+		log.Errorf("failed to FindByUserIdAndId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	responseBody := DatasetConfigDto{
+		DatasetId: datasetConfig.DatasetId,
+		Name:      datasetConfig.Name,
+		Shuffle:   datasetConfig.Shuffle,
+		Label:     datasetConfig.Label,
+		Normalization: DatasetConfigNormalizationDto{
+			Usage:  datasetConfig.NormalizationMethod.Valid,
+			Method: datasetConfig.NormalizationMethod.String,
+		},
+	}
+
+	util.WriteJson(w, http.StatusOK, responseBody)
 }
 
 func (h *handler) CreateDatasetConfig(w http.ResponseWriter, r *http.Request) {
