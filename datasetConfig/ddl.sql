@@ -10,9 +10,7 @@ create table nns.dataset_config
     normalization_method varchar(1024) null,
     status varchar(10) not null,
     create_time datetime default CURRENT_TIMESTAMP not null,
-    update_time datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
-    constraint dataset_config_uk_project_id_name
-        unique (project_id, name)
+    update_time datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP
 );
 
 create index dataset_config__index_project_id
