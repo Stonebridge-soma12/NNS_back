@@ -63,6 +63,10 @@ const (
         "patience": 2,
         "factor": 0.25,
         "min_lr": 0.0000003
+    },
+    "dataset_config": {
+        "valid": false,
+        "id": 0
     }
 }`
 
