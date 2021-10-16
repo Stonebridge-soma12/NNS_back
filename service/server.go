@@ -37,6 +37,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	userRepo := repository.NewUserMysqlRepository(db)
 	imageRepo := repository.NewImageMysqlRepository(db)
 	datasetConfigRepo := datasetConfig.NewRepository(db)
+	datasetRepo := dataset.NewMysqlRepository(db)
 
 	// default router
 	router := mux.NewRouter()
@@ -142,9 +143,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	s3Client := s3.NewFromConfig(cfg)
 
 	datasetHandler := &dataset.Handler{
-		Repository: &dataset.MysqlRepository{
-			DB: db,
-		},
+		Repository: datasetRepo,
 		AwsS3Client: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: datasetBucketName,
@@ -170,6 +169,8 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 		EpochRepository: &train.EpochDbRepository{
 			DB: db,
 		},
+		DatasetRepository:       datasetRepo,
+		DatasetConfigRepository: datasetConfigRepo,
 		AwsS3Uploader: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: trainedModelBucketName,

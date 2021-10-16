@@ -2,8 +2,8 @@ package train
 
 import (
 	"fmt"
+	"github.com/elixter/Querybuilder"
 	"github.com/jmoiron/sqlx"
-	"nns_back/query"
 	"strings"
 	"testing"
 )

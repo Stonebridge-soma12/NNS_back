@@ -113,7 +113,7 @@ func (tdb *TrainDbRepository) Insert(train Train) (int64, error) {
 	//options := options{}
 	//ApplyOptions(&options, insertTrain())
 	//
-	//result, err := tdb.DB.NamedExec(options.queryString, &train)
+	//result, err := tdb.db.NamedExec(options.queryString, &train)
 	//if err != nil {
 	//	return 0, err
 	//}
