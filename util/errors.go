@@ -15,6 +15,7 @@ const (
 	ErrFileTooLarge                 ErrMsg = "File Too Large"
 	ErrUnSupportedContentType       ErrMsg = "Unsupported Content Type"
 	ErrRequiresDatasetConfigSetting ErrMsg = "Requires Dataset Config Setting"
+	ErrAlreadyTrainingToTheMax      ErrMsg = "Already Training To The Max"
 
 	// 401
 	ErrLoginRequired         ErrMsg = "Login Required"

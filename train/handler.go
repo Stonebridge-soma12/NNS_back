@@ -361,7 +361,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if !trainable {
 		log.Warnw("current training count is maximum")
-		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		util.WriteError(w, http.StatusBadRequest, util.ErrAlreadyTrainingToTheMax)
 		return
 	}
 
