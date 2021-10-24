@@ -2,6 +2,7 @@ package dataset
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -16,6 +17,7 @@ import (
 type Handler struct {
 	Repository  Repository
 	AwsS3Client *cloud.AwsS3Client
+	HttpClient  *http.Client
 }
 
 const _uploadDatasetFormFileKey = "dataset"
@@ -166,7 +168,7 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userID, dataset.ID)
-	if err != nil && err != sql.ErrNoRows{
+	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -490,4 +492,63 @@ func (h *Handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+type DatasetDetailDto struct {
+	DatasetNum int        `json:"datasetNum"`
+	FeatureNum int        `json:"featureNum"`
+	Feature    []string   `json:"feature"`
+	Rows       [][]string `json:"rows"`
+}
+
+func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
+	datasetId, _ := util.Atoi64(mux.Vars(r)["datasetId"])
+
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		log.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	ds, err := h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userId, datasetId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// invalid datasetId: dataset not exist in my library
+			log.Warnw("invalid datasetId",
+				"requested datasetId", datasetId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrNotFound)
+			return
+		}
+
+		log.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	resp, err := h.HttpClient.Get(ds.URL)
+	if err != nil {
+		log.Errorw("failed to http get",
+			"error", err,
+			"url", ds.URL)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	csvReader := csv.NewReader(resp.Body)
+	records, err := csvReader.ReadAll()
+	if err != nil {
+		log.Errorf("failed to read ReadAll(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	responseBody := DatasetDetailDto{
+		DatasetNum: len(records) - 1,
+		FeatureNum: len(records[0]),
+		Feature: records[0],
+		Rows: records[1:],
+	}
+	util.WriteJson(w, http.StatusOK, responseBody)
 }

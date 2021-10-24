@@ -148,6 +148,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 			Client:     s3Client,
 			BucketName: datasetBucketName,
 		},
+		HttpClient: httpClient,
 	}
 
 	authRouter.HandleFunc("/api/datasets", datasetHandler.GetList).Methods(_Get...)
@@ -158,6 +159,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.GetLibraryList).Methods(_Get...)
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.AddNewDatasetToLibrary).Methods(_Post...)
 	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.DeleteDatasetFromLibrary).Methods(_Delete...)
+	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.GetDatasetDetail).Methods(_Get...)
 
 	// Train Handler
 	trainHandler := train.Handler{
