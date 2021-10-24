@@ -544,11 +544,15 @@ func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	maxRecordLen := 100
+	if maxRecordLen > len(records[1:]) {
+		maxRecordLen = len(records[1:])
+	}
 	responseBody := DatasetDetailDto{
 		DatasetNum: len(records) - 1,
 		FeatureNum: len(records[0]),
-		Feature: records[0],
-		Rows: records[1:],
+		Feature:    records[0],
+		Rows:       records[1 : maxRecordLen+1],
 	}
 	util.WriteJson(w, http.StatusOK, responseBody)
 }
