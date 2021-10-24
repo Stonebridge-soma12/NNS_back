@@ -17,4 +17,7 @@ type DatasetConfig struct {
 	Status              util.Status    `db:"status"`
 	CreateTime          time.Time      `db:"create_time"`
 	UpdateTime          time.Time      `db:"update_time"`
+
+	// others
+	DatasetName sql.NullString `db:"dataset_name"`
 }

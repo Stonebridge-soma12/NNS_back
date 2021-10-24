@@ -56,9 +56,11 @@ SELECT dc.id,
        dc.normalization_method,
        dc.status,
        dc.create_time,
-       dc.update_time
+       dc.update_time,
+       d.name "dataset_name"
 FROM dataset_config dc
          JOIN project p on dc.project_id = p.id
+         JOIN dataset d on dc.dataset_id = d.id
 WHERE p.id = ?
   AND dc.status = 'EXIST'
 ORDER BY dc.id ASC
@@ -93,10 +95,12 @@ SELECT dc.id,
        dc.normalization_method,
        dc.status,
        dc.create_time,
-       dc.update_time
+       dc.update_time,
+       d.name "dataset_name"
 FROM dataset_config dc
          JOIN project p on dc.project_id = p.id
          JOIN user u on p.user_id = u.id
+         JOIN dataset d on dc.dataset_id = d.id
 WHERE u.id = ?
   AND dc.id = ?
   AND dc.status = 'EXIST';`, userId, id).StructScan(&result)
