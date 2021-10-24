@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"io"
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/log"
@@ -537,22 +538,33 @@ func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	csvReader := csv.NewReader(resp.Body)
-	records, err := csvReader.ReadAll()
+	records, err := readRecords(csvReader)
 	if err != nil {
 		log.Errorf("failed to read ReadAll(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	maxRecordLen := 100
-	if maxRecordLen > len(records[1:]) {
-		maxRecordLen = len(records[1:])
-	}
 	responseBody := DatasetDetailDto{
 		DatasetNum: len(records) - 1,
 		FeatureNum: len(records[0]),
 		Feature:    records[0],
-		Rows:       records[1 : maxRecordLen+1],
+		Rows:       records[1:],
 	}
 	util.WriteJson(w, http.StatusOK, responseBody)
+}
+
+func readRecords(reader *csv.Reader) (records [][]string, err error) {
+	const maxRecordsLen = 100
+	for i := 0; i < maxRecordsLen+1; i++ {
+		record, err := reader.Read()
+		if err == io.EOF {
+			return records, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	return records, nil
 }
