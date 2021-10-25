@@ -23,9 +23,14 @@ func NewHandler(projectRepository repository.ProjectRepository, datasetConfigRep
 	}
 }
 
+type GetDatasetConfigListResponseBody struct {
+	DatasetConfigs []DatasetConfigDto `json:"datasetConfigs"`
+	Pagination     util.Pagination    `json:"pagination"`
+}
+
 type DatasetConfigDto struct {
 	Id            int64                         `json:"id"`
-	DatasetId     int64                         `json:"datasetId"`
+	Dataset       DatasetDto                    `json:"dataset"`
 	Name          string                        `json:"name"`
 	Shuffle       bool                          `json:"shuffle"`
 	Label         string                        `json:"label"`
@@ -35,6 +40,11 @@ type DatasetConfigDto struct {
 type DatasetConfigNormalizationDto struct {
 	Usage  bool   `json:"usage"`
 	Method string `json:"method"`
+}
+
+type DatasetDto struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 func (d DatasetConfigDto) Validate() error {
@@ -47,25 +57,6 @@ func (d DatasetConfigDto) Validate() error {
 	}
 
 	return nil
-}
-
-type GetDatasetConfigListResponseBody struct {
-	DatasetConfigs []GetDatasetConfigDto `json:"datasetConfigs"`
-	Pagination     util.Pagination       `json:"pagination"`
-}
-
-type GetDatasetConfigDto struct {
-	Id            int64                         `json:"id"`
-	Dataset       DatasetDto                    `json:"dataset"`
-	Name          string                        `json:"name"`
-	Shuffle       bool                          `json:"shuffle"`
-	Label         string                        `json:"label"`
-	Normalization DatasetConfigNormalizationDto `json:"normalization"`
-}
-
-type DatasetDto struct {
-	Id   int64  `json:"id"`
-	Name string `json:"name"`
 }
 
 func (h *handler) GetDatasetConfigList(w http.ResponseWriter, r *http.Request) {
@@ -103,12 +94,12 @@ func (h *handler) GetDatasetConfigList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responseBody := GetDatasetConfigListResponseBody{
-		DatasetConfigs: make([]GetDatasetConfigDto, 0, len(datasetConfigList)),
+		DatasetConfigs: make([]DatasetConfigDto, 0, len(datasetConfigList)),
 		Pagination:     pagination,
 	}
 
 	for _, datasetConfig := range datasetConfigList {
-		responseBody.DatasetConfigs = append(responseBody.DatasetConfigs, GetDatasetConfigDto{
+		responseBody.DatasetConfigs = append(responseBody.DatasetConfigs, DatasetConfigDto{
 			Id: datasetConfig.Id,
 			Dataset: DatasetDto{
 				Id:   datasetConfig.DatasetId,
@@ -151,7 +142,7 @@ func (h *handler) GetDatasetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody := GetDatasetConfigDto{
+	responseBody := DatasetConfigDto{
 		Id: datasetConfig.Id,
 		Dataset: DatasetDto{
 			Id:   datasetConfig.DatasetId,
@@ -197,7 +188,7 @@ func (h *handler) CreateDatasetConfig(w http.ResponseWriter, r *http.Request) {
 
 	newDatasetConfig := DatasetConfig{
 		ProjectId: project.Id,
-		DatasetId: requestBody.DatasetId,
+		DatasetId: requestBody.Dataset.Id,
 		Name:      requestBody.Name,
 		Shuffle:   requestBody.Shuffle,
 		NormalizationMethod: sql.NullString{
@@ -262,7 +253,7 @@ func (h *handler) UpdateDatasetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	datasetConfig.DatasetId = requestBody.DatasetId
+	datasetConfig.DatasetId = requestBody.Dataset.Id
 	datasetConfig.Name = requestBody.Name
 	datasetConfig.Shuffle = requestBody.Shuffle
 	datasetConfig.NormalizationMethod.Valid = requestBody.Normalization.Usage
