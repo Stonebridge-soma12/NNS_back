@@ -25,7 +25,7 @@ func insertLog() Option {
 func (ldr *TrainLogDbRepository) Insert(trainLog TrainLog) error {
 	builder := query.Builder{}
 	builder.AddInsert(
-			"trainLog",
+			"train_log",
 			"train_id, msg",
 			":train_id, :msg",
 		)
@@ -46,7 +46,7 @@ func (ldr *TrainLogDbRepository) Insert(trainLog TrainLog) error {
 func (ldr *TrainLogDbRepository) Delete(opts ...query.Option) error {
 	builder := query.ApplyQueryOptions(opts...)
 	builder.AddDelete().
-		AddFrom("trainLog")
+		AddFrom("train_log")
 
 	_, err := ldr.DB.Exec(builder.QueryString, builder.Args)
 	if err != nil {
@@ -59,7 +59,7 @@ func (ldr *TrainLogDbRepository) Delete(opts ...query.Option) error {
 func (ldr *TrainLogDbRepository) Find(opts ...query.Option) (TrainLog, error) {
 	builder := query.ApplyQueryOptions(opts...)
 	builder.AddSelect(defaultSelectTrainLogColumns).
-		AddFrom("trainLog")
+		AddFrom("train_log")
 
 	err := builder.Build()
 	if err != nil {
@@ -78,7 +78,7 @@ func (ldr *TrainLogDbRepository) Find(opts ...query.Option) (TrainLog, error) {
 func (ldr *TrainLogDbRepository) FindAll(opts ... query.Option) ([]TrainLog, error) {
 	builder := query.ApplyQueryOptions(opts...)
 	builder.AddSelect(defaultSelectTrainLogColumns).
-		AddFrom("trainLog")
+		AddFrom("train_log")
 
 	err := builder.Build()
 	if err != nil {
