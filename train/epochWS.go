@@ -108,6 +108,7 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	trainLog := TrainLog{
 		TrainId: tid,
 		Message: msg,
+		StatusCode: 200,
 	}
 
 	err = b.trainLogRepository.Insert(trainLog)
