@@ -450,6 +450,7 @@ func startNewTrain(datasetRepository dataset.Repository, trainRepository TrainRe
 				Method: newTrain.TrainConfig.DatasetNormalizationMethod.String,
 			},
 		},
+		ProjectNo: project.ProjectNo,
 	}
 
 	if err := fitRequest(fitter, payload); err != nil {

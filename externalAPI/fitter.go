@@ -6,11 +6,12 @@ import (
 )
 
 type FitRequestBody struct {
-	TrainId int64                 `json:"train_id"`
-	UserId  int64                 `json:"user_id"`
-	Config  json.RawMessage       `json:"config"`
-	Content json.RawMessage       `json:"content"`
-	DataSet FitRequestBodyDataSet `json:"data_set"`
+	TrainId   int64                 `json:"train_id"`
+	UserId    int64                 `json:"user_id"`
+	ProjectNo int                   `json:"project_no"`
+	Config    json.RawMessage       `json:"config"`
+	Content   json.RawMessage       `json:"content"`
+	DataSet   FitRequestBodyDataSet `json:"data_set"`
 }
 
 type FitRequestBodyDataSet struct {
