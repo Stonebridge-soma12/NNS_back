@@ -62,7 +62,7 @@ type Client struct {
 
 func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
-	tid, err := strconv.ParseInt(mux.Vars(r)["trainNo"], 10, 0)
+	tid, err := strconv.ParseInt(mux.Vars(r)["trainId"], 10, 0)
 	fmt.Println(tid)
 
 	var epoch Epoch
