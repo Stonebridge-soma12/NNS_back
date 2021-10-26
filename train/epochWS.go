@@ -49,7 +49,7 @@ func defaultCheckOrigin(r *http.Request) bool {
 }
 
 func getTrainId(r *http.Request) int64 {
-	tid, _ := strconv.ParseInt(r.Header.Get(trainId), 10, 0)
+	tid, _ := strconv.ParseInt(r.Header.Get("trainId"), 10, 0)
 
 	return tid
 }
