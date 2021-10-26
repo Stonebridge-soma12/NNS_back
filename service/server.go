@@ -117,7 +117,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	)
 
 	// Train monitor
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainId:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/reply", bridge.TrainReplyHandler).Methods(_Post...)
 	authRouter.HandleFunc("/ws/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", bridge.MonitorWsHandler)
 
