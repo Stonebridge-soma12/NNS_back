@@ -16,11 +16,22 @@ type Dataset struct {
 	Status      string         `db:"status"`
 	CreateTime  time.Time      `db:"create_time"`
 	UpdateTime  time.Time      `db:"update_time"`
+	ImageId     sql.NullInt64  `db:"image_id"` // thumbnail image
+	Kind        Kind           `db:"kind"`     // dataset kind
 
 	// additional
-	InLibrary sql.NullBool `db:"in_library"`
-	Usable    sql.NullBool `db:"usable"`
+	InLibrary    sql.NullBool   `db:"in_library"`
+	Usable       sql.NullBool   `db:"usable"`
+	ThumbnailUrl sql.NullString `db:"thumbnail_url"`
 }
+
+type Kind string
+
+const (
+	KindUnknown Kind = "UNKNOWN"
+	KindImages  Kind = "IMAGES"
+	KindText    Kind = "TEXT"
+)
 
 const (
 	maxDatasetName        = 100
