@@ -97,14 +97,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
 ORDER BY ds.id DESC
@@ -138,14 +142,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
          JOIN user u on ds.user_id = u.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
@@ -181,14 +189,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
          JOIN user u on ds.user_id = u.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
@@ -224,14 +236,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
   AND ds.name = ?
@@ -266,14 +282,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
   AND ds.name LIKE ?
@@ -307,8 +327,8 @@ func (m *mysqlRepository) FindNextDatasetNo(userId int64) (int64, error) {
 
 func (m *mysqlRepository) FindByID(id int64) (Dataset, error) {
 	ds := Dataset{}
-	err := m.db.QueryRowx(
-		`SELECT ds.id,
+	err := m.db.QueryRowx(`
+SELECT ds.id,
        ds.user_id,
        ds.dataset_no,
        ds.url,
@@ -316,11 +336,19 @@ func (m *mysqlRepository) FindByID(id int64) (Dataset, error) {
        ds.description,
        ds.public,
        ds.status,
+       ds.image_id,
+       ds.kind,
        ds.create_time,
-       ds.update_time
+       ds.update_time,
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
+         LEFT JOIN dataset_library dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.id = ?
-  and ds.status != 'DELETED';`, id).StructScan(&ds)
+  and ds.status != 'DELETED';
+  `, id).StructScan(&ds)
 
 	return ds, err
 }
@@ -334,6 +362,8 @@ func (m *mysqlRepository) Insert(dataset Dataset) (int64, error) {
                      description,
                      public,
                      status,
+                     image_id,
+                     kind,
                      create_time,
                      update_time)
 VALUES (:user_id,
@@ -343,6 +373,8 @@ VALUES (:user_id,
         :description,
         :public,
         :status,
+        :image_id,
+        :kind,
         :create_time,
         :update_time);`, dataset)
 
@@ -369,6 +401,8 @@ UPDATE dataset SET user_id = :user_id,
                    description = :description,
                    public      = :public,
                    status 	   = :status,
+                   image_id	   = :image_id,
+                   kind        = :kind,
                    create_time = :create_time,
                    update_time = :update_time
 WHERE id = :id and status != 'DELETED';
@@ -427,12 +461,16 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          JOIN dataset_library dsl ON ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE dsl.user_id = ?
 ORDER BY dsl.create_time DESC
 LIMIT ?, ?;
@@ -477,12 +515,16 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          JOIN dataset_library dsl ON ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE dsl.user_id = ?
   AND dsl.dataset_id = ?;
 `, userId, datasetId).StructScan(&dataset)
