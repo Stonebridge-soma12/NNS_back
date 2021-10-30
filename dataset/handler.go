@@ -27,7 +27,7 @@ const _requestBodyTooLarge = "http: request body too large"
 
 func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	// maximum upload of 10 MB files
-	const maxSize = 10 << 20
+	const maxSize = 1000 << 20
 	r.Body = http.MaxBytesReader(w, r.Body, maxSize)
 
 	file, _, err := r.FormFile(_uploadDatasetFormFileKey)
