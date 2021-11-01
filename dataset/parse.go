@@ -32,71 +32,82 @@ func IsUnsupportedContentTypeError(err error) bool {
 	return ok
 }
 
-func save(storage *cloud.AwsS3Client, file multipart.File) (string, error) {
-	f, err := parseToDataset(storage, file)
+func save(storage *cloud.AwsS3Client, file multipart.File) (string, Kind, error) {
+	f, kind, err := parseToDataset(storage, file)
 	if err != nil {
-		return "", err
+		return "", KindUnknown, err
 	}
 
 	fBytes, err := io.ReadAll(f)
 	if err != nil {
-		return "", err
+		return "", KindUnknown, err
 	}
 
-	return storage.UploadBytes(fBytes, cloud.WithContentType(_csv), cloud.WithExtension("csv"))
+	url, err := storage.UploadBytes(fBytes, cloud.WithContentType(_csv), cloud.WithExtension("csv"))
+	return url, kind, err
 }
 
-func parseToDataset(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, error) {
+func parseToDataset(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, Kind, error) {
 	mType, err := mimetype.DetectReader(file)
 	if err != nil {
-		return nil, err
+		return nil, KindUnknown, err
 	}
 
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return nil, err
-	}
-
-	if mType.Is(_csv) {
-		return file, nil
+		return nil, KindUnknown, err
 	}
 
 	switch {
 	case mType.Is(_csv):
-		return file, nil
+		return file, KindText, nil
 
 	case mType.Is(_zip):
 		return zipToCsv(storage, file)
 
 	default:
-		return nil, ErrUnSupportedContentType{contentType: mType.String()}
+		return nil, KindUnknown, ErrUnSupportedContentType{contentType: mType.String()}
 	}
 }
 
-func zipToCsv(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, error) {
+func zipToCsv(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, Kind, error) {
 	fileBytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		return nil, err
+		return nil, KindUnknown, err
 	}
 
 	reader, err := zip.NewReader(bytes.NewReader(fileBytes), int64(len(fileBytes)))
 	if err != nil {
-		return nil, err
+		return nil, KindUnknown, err
 	}
 
-	zipFileBytesList := make([][]byte, 0, len(reader.File))
+	// 압축된 파일 하나하나 읽으면서 jpeg, png 인지 확인. 아니면 에러
+	type dataset struct {
+		label string
+		bytes []byte
+	}
+	datasetList := make([]dataset, 0)
+	var currentDirName string
 	for _, zipFile := range reader.File {
+		if zipFile.FileInfo().IsDir() {
+			currentDirName = zipFile.FileInfo().Name()
+			continue
+		}
+
 		zipFileBytes, err := readZipFile(zipFile)
 		if err != nil {
-			return nil, err
+			return nil, KindUnknown, err
 		}
 
 		mType := mimetype.Detect(zipFileBytes)
 		switch {
 		case mType.Is(_jpeg), mType.Is(_png):
-			zipFileBytesList = append(zipFileBytesList, zipFileBytes)
+			datasetList = append(datasetList, dataset{
+				label: currentDirName,
+				bytes: zipFileBytes,
+			})
 
 		default:
-			return nil, ErrUnSupportedContentType{contentType: mType.String()}
+			return nil, KindUnknown, ErrUnSupportedContentType{contentType: mType.String()}
 		}
 
 	}
@@ -105,23 +116,22 @@ func zipToCsv(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, error
 	csvWriter := csv.NewWriter(buf)
 	defer csvWriter.Flush()
 
-	if err := csvWriter.Write([]string{"url"}); err != nil {
-		return nil, err
+	if err := csvWriter.Write([]string{"url", "label"}); err != nil {
+		return nil, KindUnknown, err
 	}
 
-	for _, zipFileBytes := range zipFileBytesList {
-		url, err := storage.UploadBytes(zipFileBytes)
+	for _, ds := range datasetList {
+		url, err := storage.UploadBytes(ds.bytes)
 		if err != nil {
-			return nil, err
+			return nil, KindUnknown, err
 		}
 
-		if err := csvWriter.Write([]string{url}); err != nil {
-			return nil, err
+		if err := csvWriter.Write([]string{url, ds.label}); err != nil {
+			return nil, KindUnknown, err
 		}
 	}
 
-
-	return buf, nil
+	return buf, KindImages, nil
 }
 
 func readZipFile(file *zip.File) ([]byte, error) {

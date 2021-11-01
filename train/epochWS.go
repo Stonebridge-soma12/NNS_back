@@ -49,7 +49,7 @@ func defaultCheckOrigin(r *http.Request) bool {
 }
 
 func getTrainId(r *http.Request) int64 {
-	tid, _ := strconv.ParseInt(r.Header.Get(trainId), 10, 0)
+	tid, _ := strconv.ParseInt(r.Header.Get("trainId"), 10, 0)
 
 	return tid
 }
@@ -62,11 +62,12 @@ type Client struct {
 
 func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
-	tid := getTrainId(r)
+	tid, err := strconv.ParseInt(mux.Vars(r)["trainId"], 10, 0)
+	fmt.Println(tid)
 
 	var epoch Epoch
 	epoch.TrainId = tid
-	err := epoch.Bind(r)
+	err = epoch.Bind(r)
 	if err != nil {
 		log.Println(err)
 		return
@@ -107,6 +108,7 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	trainLog := TrainLog{
 		TrainId: tid,
 		Message: msg,
+		StatusCode: 200,
 	}
 
 	err = b.trainLogRepository.Insert(trainLog)
@@ -125,16 +127,15 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
-	tid := getTrainId(r)
-
 	var trainLog TrainLog
-
-	trainLog.TrainId = tid
 	err := trainLog.Bind(r)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+
+	fmt.Println(trainLog)
+
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	trainLog.Message = currentTime + ": " + trainLog.Message
 	err = b.trainLogRepository.Insert(trainLog)
@@ -142,7 +143,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	train, err := b.trainRepository.Find(WithTrainTrainId(tid))
+	train, err := b.trainRepository.Find(WithTrainTrainId(trainLog.TrainId))
 	if err != nil {
 		log.Println(err)
 		return
@@ -166,7 +167,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Train finished")
 
-	b.Close(tid)
+	b.Close(trainLog.TrainId)
 }
 
 func (b *Bridge) MonitorWsHandler(w http.ResponseWriter, r *http.Request) {

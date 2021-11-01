@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/dataset"
+	"nns_back/datasetConfig"
 	"nns_back/externalAPI"
 	"nns_back/log"
 	"nns_back/repository"
@@ -35,6 +36,8 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	projectRepo := repository.NewProjectMysqlRepository(db)
 	userRepo := repository.NewUserMysqlRepository(db)
 	imageRepo := repository.NewImageMysqlRepository(db)
+	datasetConfigRepo := datasetConfig.NewRepository(db)
+	datasetRepo := dataset.NewMysqlRepository(db)
 
 	// default router
 	router := mux.NewRouter()
@@ -92,6 +95,14 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/share", projectHandler.GenerateShareKeyHandler).Methods(_Get...)
 
+	// dataset config
+	datasetConfigHandler := datasetConfig.NewHandler(projectRepo, datasetConfigRepo)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config", datasetConfigHandler.GetDatasetConfigList).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config/{datasetConfigId:[0-9]+}", datasetConfigHandler.GetDatasetConfig).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config", datasetConfigHandler.CreateDatasetConfig).Methods(_Post...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config/{datasetConfigId:[0-9]+}", datasetConfigHandler.UpdateDatasetConfig).Methods(_Put...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/dataset-config/{datasetConfigId:[0-9]+}", datasetConfigHandler.DeleteDatasetConfig).Methods(_Delete...)
+
 	// web socket
 	hub := ws.NewHub(db, projectRepo, userRepo)
 
@@ -106,7 +117,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	)
 
 	// Train monitor
-	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)
+	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainId:[0-9]+}/epoch", bridge.NewEpochHandler).Methods(_Post...)
 	router.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/reply", bridge.TrainReplyHandler).Methods(_Post...)
 	authRouter.HandleFunc("/ws/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", bridge.MonitorWsHandler)
 
@@ -132,13 +143,12 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	s3Client := s3.NewFromConfig(cfg)
 
 	datasetHandler := &dataset.Handler{
-		Repository: &dataset.MysqlRepository{
-			DB: db,
-		},
+		Repository: datasetRepo,
 		AwsS3Client: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: datasetBucketName,
 		},
+		HttpClient: httpClient,
 	}
 
 	authRouter.HandleFunc("/api/datasets", datasetHandler.GetList).Methods(_Get...)
@@ -149,6 +159,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.GetLibraryList).Methods(_Get...)
 	authRouter.HandleFunc("/api/dataset/library", datasetHandler.AddNewDatasetToLibrary).Methods(_Post...)
 	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.DeleteDatasetFromLibrary).Methods(_Delete...)
+	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.GetDatasetDetail).Methods(_Get...)
 
 	// Train Handler
 	trainHandler := train.Handler{
@@ -160,12 +171,15 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 		EpochRepository: &train.EpochDbRepository{
 			DB: db,
 		},
+		DatasetRepository:       datasetRepo,
+		DatasetConfigRepository: datasetConfigRepo,
 		AwsS3Uploader: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: trainedModelBucketName,
 		},
 	}
 
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train", trainHandler.NewTrainHandler).Methods(_Post...)
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train", trainHandler.GetTrainHistoryListHandler).Methods(_Get...)
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.DeleteTrainHistoryHandler).Methods(_Delete...)
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.UpdateTrainHistoryHandler).Methods(_Put...)

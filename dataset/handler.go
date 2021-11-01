@@ -2,9 +2,11 @@ package dataset
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"io"
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/log"
@@ -16,6 +18,7 @@ import (
 type Handler struct {
 	Repository  Repository
 	AwsS3Client *cloud.AwsS3Client
+	HttpClient  *http.Client
 }
 
 const _uploadDatasetFormFileKey = "dataset"
@@ -40,7 +43,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	url, err := save(h.AwsS3Client, file)
+	url, kind, err := save(h.AwsS3Client, file)
 	if err != nil {
 		if IsUnsupportedContentTypeError(err) {
 			log.Warn(err)
@@ -81,6 +84,8 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		Description: sql.NullString{},
 		Public:      sql.NullBool{},
 		Status:      UPLOADED,
+		ImageId:     sql.NullInt64{},
+		Kind:        kind,
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 	}
@@ -96,10 +101,11 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateFileConfigRequestBody struct {
-	Id          int64  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Public      bool   `json:"public"`
+	Id          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Public      bool      `json:"public"`
+	Thumbnail   Thumbnail `json:"thumbnail"`
 }
 
 func (u *UpdateFileConfigRequestBody) Validate() error {
@@ -158,6 +164,7 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 	dataset.Status = EXIST
 	dataset.Public = sql.NullBool{Bool: body.Public, Valid: true}
 	dataset.UpdateTime = time.Now()
+	dataset.ImageId = sql.NullInt64{Int64: body.Thumbnail.ImageId, Valid: body.Thumbnail.Valid}
 
 	if err := h.Repository.Update(dataset.ID, dataset); err != nil {
 		log.Errorf("failed to update dataset: %v", err)
@@ -166,7 +173,7 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userID, dataset.ID)
-	if err != nil && err != sql.ErrNoRows{
+	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -199,6 +206,14 @@ type DatasetDto struct {
 	UpdateTime  time.Time `json:"updateTime"`
 	Usable      bool      `json:"usable"`
 	InLibrary   bool      `json:"inLibrary"`
+	Thumbnail   Thumbnail `json:"thumbnail"`
+	Kind        Kind      `json:"kind"`
+}
+
+type Thumbnail struct {
+	Valid   bool   `json:"valid"`
+	ImageId int64  `json:"imageId"`
+	Url     string `json:"url"`
 }
 
 const (
@@ -277,6 +292,12 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 			UpdateTime:  val.UpdateTime,
 			Usable:      val.Usable.Bool,
 			InLibrary:   val.InLibrary.Bool,
+			Thumbnail: Thumbnail{
+				Valid:   val.ImageId.Valid,
+				ImageId: val.ImageId.Int64,
+				Url:     val.ThumbnailUrl.String,
+			},
+			Kind: val.Kind,
 		})
 	}
 
@@ -369,6 +390,12 @@ func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 			UpdateTime:  val.UpdateTime,
 			Usable:      val.Usable.Bool,
 			InLibrary:   val.InLibrary.Bool,
+			Thumbnail: Thumbnail{
+				Valid:   val.ImageId.Valid,
+				ImageId: val.ImageId.Int64,
+				Url:     val.ThumbnailUrl.String,
+			},
+			Kind: val.Kind,
 		})
 	}
 
@@ -490,4 +517,78 @@ func (h *Handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+type DatasetDetailDto struct {
+	DatasetNum int        `json:"datasetNum"`
+	FeatureNum int        `json:"featureNum"`
+	Feature    []string   `json:"feature"`
+	Rows       [][]string `json:"rows"`
+}
+
+func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
+	datasetId, _ := util.Atoi64(mux.Vars(r)["datasetId"])
+
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		log.Errorf("failed to get userId")
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	ds, err := h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userId, datasetId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// invalid datasetId: dataset not exist in my library
+			log.Warnw("invalid datasetId",
+				"requested datasetId", datasetId)
+			util.WriteError(w, http.StatusBadRequest, util.ErrNotFound)
+			return
+		}
+
+		log.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	resp, err := h.HttpClient.Get(ds.URL)
+	if err != nil {
+		log.Errorw("failed to http get",
+			"error", err,
+			"url", ds.URL)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	csvReader := csv.NewReader(resp.Body)
+	records, err := readRecords(csvReader)
+	if err != nil {
+		log.Errorf("failed to read ReadAll(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	responseBody := DatasetDetailDto{
+		DatasetNum: len(records) - 1,
+		FeatureNum: len(records[0]),
+		Feature:    records[0],
+		Rows:       records[1:],
+	}
+	util.WriteJson(w, http.StatusOK, responseBody)
+}
+
+func readRecords(reader *csv.Reader) (records [][]string, err error) {
+	const maxRecordsLen = 100
+	for i := 0; i < maxRecordsLen+1; i++ {
+		record, err := reader.Read()
+		if err == io.EOF {
+			return records, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	return records, nil
 }

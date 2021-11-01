@@ -19,8 +19,7 @@ func NewCodeConverter(httpClient *http.Client) CodeConverter {
 }
 
 func (c *codeConverterImpl) CodeConvert(payload CodeConvertRequestBody) (*http.Response, error) {
-	const requetsUrl = "http://54.180.153.56:8080/make-python"
-	// "https://nnstudio.io:8081/api/python"
+	const requetsUrl = "http://nnstudio.io:8081/api/python"
 
 	jsoned, err := json.Marshal(payload)
 	if err != nil {

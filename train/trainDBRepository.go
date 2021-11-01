@@ -1,6 +1,7 @@
 package train
 
 import (
+	"database/sql"
 	"github.com/elixter/Querybuilder"
 	"github.com/jmoiron/sqlx"
 )
@@ -88,6 +89,11 @@ ORDER BY t.train_no DESC
 LIMIT 1;
 `, userId).Scan(&lastTrainNo)
 
+	if err == sql.ErrNoRows {
+		lastTrainNo = 0
+		err = nil
+	}
+
 	return lastTrainNo + 1, err
 }
 
@@ -107,7 +113,7 @@ func (tdb *TrainDbRepository) Insert(train Train) (int64, error) {
 	//options := options{}
 	//ApplyOptions(&options, insertTrain())
 	//
-	//result, err := tdb.DB.NamedExec(options.queryString, &train)
+	//result, err := tdb.db.NamedExec(options.queryString, &train)
 	//if err != nil {
 	//	return 0, err
 	//}

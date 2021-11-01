@@ -3,11 +3,15 @@ package train
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 	"io"
 	"net/http"
 	"nns_back/cloud"
+	"nns_back/dataset"
+	"nns_back/datasetConfig"
 	"nns_back/externalAPI"
 	"nns_back/log"
 	"nns_back/model"
@@ -19,15 +23,17 @@ import (
 
 const (
 	saveTrainedModelFormFileKey = "model"
-	trainModelContentType = "application/zip"
+	trainModelContentType       = "application/zip"
 )
 
 type Handler struct {
-	Fitter            externalAPI.Fitter
-	ProjectRepository repository.ProjectRepository
-	TrainRepository   TrainRepository
-	EpochRepository   EpochRepository
-	AwsS3Uploader     cloud.AwsS3Uploader
+	Fitter                  externalAPI.Fitter
+	ProjectRepository       repository.ProjectRepository
+	TrainRepository         TrainRepository
+	EpochRepository         EpochRepository
+	DatasetRepository       dataset.Repository
+	DatasetConfigRepository datasetConfig.Repository
+	AwsS3Uploader           cloud.AwsS3Uploader
 }
 
 type GetTrainHistoryListResponseBody struct {
@@ -35,6 +41,7 @@ type GetTrainHistoryListResponseBody struct {
 }
 
 type GetTrainHistoryListResponseHistoryBody struct {
+	TrainNo                    int64           `json:"trainNo"`
 	Name                       string          `json:"name"`
 	Status                     string          `json:"status"`
 	Acc                        float64         `json:"acc"`
@@ -97,29 +104,43 @@ func (h *Handler) GetTrainHistoryListHandler(w http.ResponseWriter, r *http.Requ
 	for _, history := range trainList {
 		if history.Status == TrainStatusFinish || history.Status == TrainStatusTrain {
 			resp.TrainHistories = append(resp.TrainHistories, GetTrainHistoryListResponseHistoryBody{
-				Name: history.Name,
-				Status: history.Status,
-				Acc: history.Acc,
-				Loss: history.Loss,
-				ValAcc: history.ValAcc,
-				ValLoss: history.ValLoss,
-				Epochs: history.Epochs,
-				ResultUrl: history.ResultUrl,// saved model url
-				TrainDatasetUrl: history.TrainConfig.TrainDatasetUrl,
-				ValidDatasetUrl: history.TrainConfig.ValidDatasetUrl,
-				DatasetShuffle: history.TrainConfig.DatasetShuffle,
-				DatasetLabel: history.TrainConfig.DatasetLabel,
-				DatasetNormalizationUsage: history.TrainConfig.DatasetNormalizationUsage,
+				TrainNo:                    history.TrainNo,
+				Name:                       history.Name,
+				Status:                     history.Status,
+				Acc:                        history.Acc,
+				Loss:                       history.Loss,
+				ValAcc:                     history.ValAcc,
+				ValLoss:                    history.ValLoss,
+				Epochs:                     history.Epochs,
+				ResultUrl:                  history.ResultUrl, // saved model url
+				TrainDatasetUrl:            history.TrainConfig.TrainDatasetUrl,
+				ValidDatasetUrl:            history.TrainConfig.ValidDatasetUrl,
+				DatasetShuffle:             history.TrainConfig.DatasetShuffle,
+				DatasetLabel:               history.TrainConfig.DatasetLabel,
+				DatasetNormalizationUsage:  history.TrainConfig.DatasetNormalizationUsage,
 				DatasetNormalizationMethod: history.TrainConfig.DatasetNormalizationMethod,
-				ModelContent: history.TrainConfig.ModelContent,
-				ModelConfig: history.TrainConfig.ModelConfig,
-				CreateTime: history.TrainConfig.CreateTime,
-				UpdateTime: history.TrainConfig.UpdateTime,
+				ModelContent:               history.TrainConfig.ModelContent,
+				ModelConfig:                history.TrainConfig.ModelConfig,
+				CreateTime:                 history.TrainConfig.CreateTime,
+				UpdateTime:                 history.TrainConfig.UpdateTime,
 			})
 		}
 	}
 
 	util.WriteJson(w, http.StatusOK, resp)
+}
+
+type trainHistoryEpochListResponseBodyBody struct {
+	EpochNo      int     `json:"epochNo"`
+	Acc          float64 `json:"acc"`
+	Loss         float64 `json:"loss"`
+	ValAcc       float64 `json:"valAcc"`
+	ValLoss      float64 `json:"valLoss"`
+	LearningRate float64 `json:"learningRate"`
+}
+
+type trainHistoryEpochListResponseBody struct {
+	Epochs []trainHistoryEpochListResponseBodyBody `json:"epochs"`
 }
 
 func (h *Handler) GetTrainHistoryEpochsHandler(w http.ResponseWriter, r *http.Request) {
@@ -170,7 +191,19 @@ func (h *Handler) GetTrainHistoryEpochsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	util.WriteJson(w, http.StatusOK, epochs)
+	var resp trainHistoryEpochListResponseBody
+	for _, epoch := range epochs {
+		resp.Epochs = append(resp.Epochs, trainHistoryEpochListResponseBodyBody{
+			EpochNo:      epoch.Epoch,
+			Acc:          epoch.Acc,
+			Loss:         epoch.Loss,
+			ValAcc:       epoch.ValAcc,
+			ValLoss:      epoch.ValLoss,
+			LearningRate: epoch.LearningRate,
+		})
+	}
+
+	util.WriteJson(w, http.StatusOK, resp)
 }
 
 func (h *Handler) DeleteTrainHistoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -304,38 +337,9 @@ func (h *Handler) UpdateTrainHistoryHandler(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type NewTrainHandlerRequestBody struct {
-	Dataset struct {
-		TrainUrl      string `json:"trainUrl"`
-		ValidateUrl   string `json:"validateUrl"`
-		Shuffle       bool   `json:"shuffle"`
-		Label         string `json:"label"`
-		Normalization struct {
-			Usage  bool   `json:"usage"`
-			Method string `json:"method"`
-		} `json:"normalization"`
-	} `json:"dataset"`
-}
-
-func (n NewTrainHandlerRequestBody) Validate() error {
-	if n.Dataset.TrainUrl == "" {
-		return errors.New("trainUrl is required")
-	}
-
-	return nil
-}
-
 const _numberOfTrainingLimit = 1
 
 func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
-	body := NewTrainHandlerRequestBody{}
-	if err := util.BindJson(r.Body, &body); err != nil {
-		log.Warnw("failed to bind json",
-			"error", err)
-		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
-		return
-	}
-
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw(
@@ -347,17 +351,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
-	if err != nil {
-		log.Warnw(
-			"failed to convert projectNo to int",
-			"error code", util.ErrInvalidPathParm,
-			"error", err,
-			"input value", mux.Vars(r)["projectNo"],
-		)
-		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
-		return
-	}
+	projectNo, _ := strconv.Atoi(mux.Vars(r)["projectNo"])
 
 	// 지금은 각 유저는 한번에 하나의 학습만 가능
 	// 이 유저가 현재 학습중인지 확인
@@ -367,11 +361,33 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if !trainable {
 		log.Warnw("current training count is maximum")
-		util.WriteError(w, http.StatusBadRequest, util.ErrBadRequest)
+		util.WriteError(w, http.StatusBadRequest, util.ErrAlreadyTrainingToTheMax)
 		return
 	}
 
-	if err := startNewTrain(h.TrainRepository, h.ProjectRepository, h.Fitter, userId, projectNo, body); err != nil {
+	// get dataset config
+	project, err := h.ProjectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
+	if err != nil {
+		log.Errorf("failed to SelectProject(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	datasetConfigId, err := getDatasetConfigId(project)
+	if err != nil {
+		log.Warnw("dataset config id is not set in project config")
+		util.WriteError(w, http.StatusBadRequest, util.ErrRequiresDatasetConfigSetting)
+		return
+	}
+
+	datasetConfig, err := h.DatasetConfigRepository.FindByUserIdAndId(userId, datasetConfigId)
+	if err != nil {
+		log.Errorf("failed to FindByuserIdAndId(): %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if err := startNewTrain(h.DatasetRepository, h.TrainRepository, h.Fitter, project, datasetConfig, userId); err != nil {
 		log.Error(err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -380,7 +396,7 @@ func (h *Handler) NewTrainHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func isTrainable(trainRepository TrainRepository, userId int64) (bool, error){
+func isTrainable(trainRepository TrainRepository, userId int64) (bool, error) {
 	trainingCount, err := trainRepository.CountCurrentTraining(userId)
 	if err != nil {
 		return false, err
@@ -394,21 +410,29 @@ func isTrainable(trainRepository TrainRepository, userId int64) (bool, error){
 	return result, nil
 }
 
-func startNewTrain(trainRepository TrainRepository, projectRepository repository.ProjectRepository, fitter externalAPI.Fitter, userId int64, projectNo int, body NewTrainHandlerRequestBody) error {
-	project, err := projectRepository.SelectProject(repository.ClassifiedByProjectNo(userId, projectNo))
-	if err != nil {
-		return err
+func getDatasetConfigId(project model.Project) (int64, error) {
+	if valid := gjson.GetBytes(project.Config.Json, "dataset_config").Get("valid").Bool(); !valid {
+		return 0, errors.New("dataset_config id is not valid")
 	}
 
+	return gjson.GetBytes(project.Config.Json, "dataset_config").Get("id").Int(), nil
+}
+
+func startNewTrain(datasetRepository dataset.Repository, trainRepository TrainRepository, fitter externalAPI.Fitter, project model.Project, config datasetConfig.DatasetConfig, userId int64) error {
 	nextTrainNo, err := trainRepository.FindNextTrainNo(userId)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "FindNextTrainNo(userId: %d)", userId)
 	}
 
-	newTrain := createNewTrain(userId, nextTrainNo, project, body)
+	dataset, err := datasetRepository.FindByID(config.DatasetId)
+	if err != nil {
+		return errors.Wrapf(err, "FindByID(id: %d)", config.DatasetId)
+	}
+
+	newTrain := createNewTrain(userId, nextTrainNo, project, dataset, config)
 	newTrain.Id, err = saveTrain(trainRepository, newTrain)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "saveTrain(trainRepository: %v, newTrain: %v", trainRepository, newTrain)
 	}
 
 	payload := externalAPI.FitRequestBody{
@@ -417,27 +441,37 @@ func startNewTrain(trainRepository TrainRepository, projectRepository repository
 		Config:  project.Config.Json,
 		Content: project.Content.Json,
 		DataSet: externalAPI.FitRequestBodyDataSet{
-			TrainUri:      body.Dataset.TrainUrl,
-			ValidationUri: body.Dataset.ValidateUrl,
-			Shuffle:       body.Dataset.Shuffle,
-			Label:         body.Dataset.Label,
+			TrainUri:      newTrain.TrainConfig.TrainDatasetUrl,
+			ValidationUri: newTrain.TrainConfig.ValidDatasetUrl.String,
+			Shuffle:       newTrain.TrainConfig.DatasetShuffle,
+			Label:         newTrain.TrainConfig.DatasetLabel,
 			Normalization: externalAPI.FitRequestBodyDataSetNormalization{
-				Usage:  body.Dataset.Normalization.Usage,
-				Method: body.Dataset.Normalization.Method,
+				Usage:  newTrain.TrainConfig.DatasetNormalizationUsage,
+				Method: newTrain.TrainConfig.DatasetNormalizationMethod.String,
 			},
 		},
+		ProjectNo: project.ProjectNo,
 	}
 
-	return fitRequest(fitter, payload)
+	if err := fitRequest(fitter, payload); err != nil {
+		return errors.Wrapf(err, "fitRequest(fitter: %v, payload: %v", fitter, payload)
+	}
+
+	newTrain.Status = TrainStatusTrain
+	if err := trainRepository.Update(newTrain); err != nil {
+		return errors.Wrapf(err, "Update(train: %v)", newTrain)
+	}
+
+	return nil
 }
 
-func createNewTrain(userId int64, nextTrainNo int64, project model.Project, body NewTrainHandlerRequestBody) Train {
+func createNewTrain(userId int64, nextTrainNo int64, project model.Project, dataset dataset.Dataset, config datasetConfig.DatasetConfig) Train {
 	newTrain := Train{
 		//Id:        0,
 		UserId:    userId,
 		TrainNo:   nextTrainNo,
 		ProjectId: project.Id,
-		Status:    TrainStatusTrain,
+		Status:    TrainStatusCreated,
 		//Acc:       0,
 		//Loss:      0,
 		//ValAcc:    0,
@@ -448,17 +482,14 @@ func createNewTrain(userId int64, nextTrainNo int64, project model.Project, body
 		TrainConfig: TrainConfig{
 			//Id:              0,
 			//TrainId:         0,
-			TrainDatasetUrl: body.Dataset.TrainUrl,
-			ValidDatasetUrl: sql.NullString{
-				String: body.Dataset.ValidateUrl,
-				Valid:  body.Dataset.ValidateUrl != "",
-			},
-			DatasetShuffle:            body.Dataset.Shuffle,
-			DatasetLabel:              body.Dataset.Label,
-			DatasetNormalizationUsage: body.Dataset.Normalization.Usage,
+			TrainDatasetUrl:           dataset.URL,
+			ValidDatasetUrl:           sql.NullString{},
+			DatasetShuffle:            config.Shuffle,
+			DatasetLabel:              config.Label,
+			DatasetNormalizationUsage: config.NormalizationMethod.Valid,
 			DatasetNormalizationMethod: sql.NullString{
-				String: body.Dataset.Normalization.Method,
-				Valid:  body.Dataset.Normalization.Method != "",
+				String: config.NormalizationMethod.String,
+				Valid:  config.NormalizationMethod.Valid,
 			},
 			ModelContent: project.Content.Json,
 			ModelConfig:  project.Config.Json,
@@ -475,12 +506,12 @@ func saveTrain(trainRepository TrainRepository, train Train) (int64, error) {
 func fitRequest(fitter externalAPI.Fitter, payload externalAPI.FitRequestBody) error {
 	resp, err := fitter.Fit(payload)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "Fit(payload: %v)", payload)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("failed to Fit")
+		return errors.New(fmt.Sprintf("failed to Fit: response status code : %d", resp.StatusCode))
 	}
 	return nil
 }

@@ -5,24 +5,30 @@ import (
 	"nns_back/util"
 )
 
-type MysqlRepository struct {
-	DB *sqlx.DB
+type mysqlRepository struct {
+	db *sqlx.DB
 }
 
-//func (m *MysqlRepository) count(builder squirrel.SelectBuilder) (int64, error) {
+func NewMysqlRepository(db *sqlx.DB) Repository {
+	return &mysqlRepository{
+		db: db,
+	}
+}
+
+//func (m *mysqlRepository) count(builder squirrel.SelectBuilder) (int64, error) {
 //	query, args, err := builder.Columns("COUNT(ds.*)").from("dataset ds").ToSql()
 //	if err != nil {
 //		return 0, err
 //	}
 //
 //	var count int64
-//	err = m.DB.QueryRowx(query, args...).Scan(&count)
+//	err = m.db.QueryRowx(query, args...).Scan(&count)
 //	return count, err
 //}
 
-func (m *MysqlRepository) CountPublic() (int64, error) {
+func (m *mysqlRepository) CountPublic() (int64, error) {
 	var count int64
-	err := m.DB.QueryRowx(`
+	err := m.db.QueryRowx(`
 SELECT count(*)
 FROM dataset ds
 WHERE ds.public = TRUE
@@ -31,9 +37,9 @@ WHERE ds.public = TRUE
 	return count, err
 }
 
-func (m *MysqlRepository) CountPublicByUserName(userName string) (int64, error) {
+func (m *mysqlRepository) CountPublicByUserName(userName string) (int64, error) {
 	var count int64
-	err := m.DB.QueryRowx(`
+	err := m.db.QueryRowx(`
 SELECT count(*)
 FROM dataset ds
          JOIN user u on ds.user_id = u.id
@@ -44,9 +50,9 @@ WHERE ds.public = TRUE
 	return count, err
 }
 
-func (m *MysqlRepository) CountPublicByUserNameLike(userName string) (int64, error) {
+func (m *mysqlRepository) CountPublicByUserNameLike(userName string) (int64, error) {
 	var count int64
-	err := m.DB.QueryRowx(`
+	err := m.db.QueryRowx(`
 SELECT count(*)
 FROM dataset ds
          JOIN user u on ds.user_id = u.id
@@ -57,9 +63,9 @@ WHERE ds.public = TRUE
 	return count, err
 }
 
-func (m *MysqlRepository) CountPublicByTitle(title string) (int64, error) {
+func (m *mysqlRepository) CountPublicByTitle(title string) (int64, error) {
 	var count int64
-	err := m.DB.QueryRowx(`
+	err := m.db.QueryRowx(`
 SELECT count(*)
 FROM dataset ds
 WHERE ds.public = TRUE
@@ -69,9 +75,9 @@ WHERE ds.public = TRUE
 	return count, err
 }
 
-func (m *MysqlRepository) CountPublicByTitleLike(title string) (int64, error) {
+func (m *mysqlRepository) CountPublicByTitleLike(title string) (int64, error) {
 	var count int64
-	err := m.DB.QueryRowx(`
+	err := m.db.QueryRowx(`
 SELECT count(*)
 FROM dataset ds
 WHERE ds.public = TRUE
@@ -81,8 +87,8 @@ WHERE ds.public = TRUE
 	return count, err
 }
 
-func (m *MysqlRepository) FindAllPublic(userId int64, offset, limit int) ([]Dataset, error) {
-	rows, err := m.DB.Queryx(`
+func (m *mysqlRepository) FindAllPublic(userId int64, offset, limit int) ([]Dataset, error) {
+	rows, err := m.db.Queryx(`
 SELECT ds.id              "id",
        ds.user_id         "user_id",
        ds.dataset_no      "dataset_no",
@@ -91,14 +97,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
 ORDER BY ds.id DESC
@@ -122,8 +132,8 @@ LIMIT ?, ?;
 	return dsList, nil
 }
 
-func (m *MysqlRepository) FindAllPublicByUserName(userId int64, userName string, offset, limit int) ([]Dataset, error) {
-	rows, err := m.DB.Queryx(`
+func (m *mysqlRepository) FindAllPublicByUserName(userId int64, userName string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.db.Queryx(`
 SELECT ds.id              "id",
        ds.user_id         "user_id",
        ds.dataset_no      "dataset_no",
@@ -132,14 +142,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
          JOIN user u on ds.user_id = u.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
@@ -165,8 +179,8 @@ LIMIT ?, ?;
 	return dsList, nil
 }
 
-func (m *MysqlRepository) FindAllPublicByUserNameLike(userId int64, userName string, offset, limit int) ([]Dataset, error) {
-	rows, err := m.DB.Queryx(`
+func (m *mysqlRepository) FindAllPublicByUserNameLike(userId int64, userName string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.db.Queryx(`
 SELECT ds.id              "id",
        ds.user_id         "user_id",
        ds.dataset_no      "dataset_no",
@@ -175,14 +189,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
          JOIN user u on ds.user_id = u.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
@@ -208,8 +226,8 @@ LIMIT ?, ?;
 	return dsList, nil
 }
 
-func (m *MysqlRepository) FindAllPublicByTitle(userId int64, title string, offset, limit int) ([]Dataset, error) {
-	rows, err := m.DB.Queryx(`
+func (m *mysqlRepository) FindAllPublicByTitle(userId int64, title string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.db.Queryx(`
 SELECT ds.id              "id",
        ds.user_id         "user_id",
        ds.dataset_no      "dataset_no",
@@ -218,14 +236,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
   AND ds.name = ?
@@ -250,8 +272,8 @@ LIMIT ?, ?;
 	return dsList, nil
 }
 
-func (m *MysqlRepository) FindAllPublicByTitleLike(userId int64, title string, offset, limit int) ([]Dataset, error) {
-	rows, err := m.DB.Queryx(`
+func (m *mysqlRepository) FindAllPublicByTitleLike(userId int64, title string, offset, limit int) ([]Dataset, error) {
+	rows, err := m.db.Queryx(`
 SELECT ds.id              "id",
        ds.user_id         "user_id",
        ds.dataset_no      "dataset_no",
@@ -260,14 +282,18 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          LEFT JOIN (SELECT idsl.*
                     FROM dataset_library idsl
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.public = TRUE
   AND ds.status = 'EXIST'
   AND ds.name LIKE ?
@@ -292,17 +318,17 @@ LIMIT ?, ?;
 	return dsList, nil
 }
 
-func (m *MysqlRepository) FindNextDatasetNo(userId int64) (int64, error) {
+func (m *mysqlRepository) FindNextDatasetNo(userId int64) (int64, error) {
 	var dsn int64
-	err := m.DB.QueryRowx(
+	err := m.db.QueryRowx(
 		`SELECT ds.dataset_no FROM dataset ds WHERE ds.user_id = ? and ds.status != 'DELETED' ORDER BY ds.dataset_no DESC LIMIT 1`, userId).Scan(&dsn)
 	return dsn, err
 }
 
-func (m *MysqlRepository) FindByID(id int64) (Dataset, error) {
+func (m *mysqlRepository) FindByID(id int64) (Dataset, error) {
 	ds := Dataset{}
-	err := m.DB.QueryRowx(
-		`SELECT ds.id,
+	err := m.db.QueryRowx(`
+SELECT ds.id,
        ds.user_id,
        ds.dataset_no,
        ds.url,
@@ -310,17 +336,25 @@ func (m *MysqlRepository) FindByID(id int64) (Dataset, error) {
        ds.description,
        ds.public,
        ds.status,
+       ds.image_id,
+       ds.kind,
        ds.create_time,
-       ds.update_time
+       ds.update_time,
+       dsl.usable         "usable",
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
+         LEFT JOIN dataset_library dsl on ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.id = ?
-  and ds.status != 'DELETED';`, id).StructScan(&ds)
+  and ds.status != 'DELETED';
+  `, id).StructScan(&ds)
 
 	return ds, err
 }
 
-func (m *MysqlRepository) Insert(dataset Dataset) (int64, error) {
-	result, err := m.DB.NamedExec(
+func (m *mysqlRepository) Insert(dataset Dataset) (int64, error) {
+	result, err := m.db.NamedExec(
 		`INSERT INTO dataset (user_id,
                      dataset_no,
                      url,
@@ -328,6 +362,8 @@ func (m *MysqlRepository) Insert(dataset Dataset) (int64, error) {
                      description,
                      public,
                      status,
+                     image_id,
+                     kind,
                      create_time,
                      update_time)
 VALUES (:user_id,
@@ -337,6 +373,8 @@ VALUES (:user_id,
         :description,
         :public,
         :status,
+        :image_id,
+        :kind,
         :create_time,
         :update_time);`, dataset)
 
@@ -347,8 +385,8 @@ VALUES (:user_id,
 	return result.LastInsertId()
 }
 
-func (m *MysqlRepository) Update(id int64, dataset Dataset) error {
-	tx, err := m.DB.Beginx()
+func (m *mysqlRepository) Update(id int64, dataset Dataset) error {
+	tx, err := m.db.Beginx()
 	if err != nil {
 		return err
 	}
@@ -363,6 +401,8 @@ UPDATE dataset SET user_id = :user_id,
                    description = :description,
                    public      = :public,
                    status 	   = :status,
+                   image_id	   = :image_id,
+                   kind        = :kind,
                    create_time = :create_time,
                    update_time = :update_time
 WHERE id = :id and status != 'DELETED';
@@ -377,8 +417,8 @@ WHERE id = :id and status != 'DELETED';
 	return nil
 }
 
-func (m *MysqlRepository) Delete(id int64) error {
-	tx, err := m.DB.Beginx()
+func (m *mysqlRepository) Delete(id int64) error {
+	tx, err := m.db.Beginx()
 	if err != nil {
 		return err
 	}
@@ -411,8 +451,8 @@ WHERE dsl.dataset_id = ?;
 	return err
 }
 
-func (m *MysqlRepository) FindDatasetFromDatasetLibraryByUserId(userId int64, offset, limit int) ([]Dataset, error) {
-	rows, err := m.DB.Queryx(`
+func (m *mysqlRepository) FindDatasetFromDatasetLibraryByUserId(userId int64, offset, limit int) ([]Dataset, error) {
+	rows, err := m.db.Queryx(`
 SELECT ds.id              "id",
        ds.user_id         "user_id",
        ds.dataset_no      "dataset_no",
@@ -421,12 +461,16 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          JOIN dataset_library dsl ON ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE dsl.user_id = ?
 ORDER BY dsl.create_time DESC
 LIMIT ?, ?;
@@ -449,9 +493,9 @@ LIMIT ?, ?;
 	return datasets, nil
 }
 
-func (m *MysqlRepository) CountDatasetLibraryByUserId(userId int64) (int64, error) {
+func (m *mysqlRepository) CountDatasetLibraryByUserId(userId int64) (int64, error) {
 	var count int64
-	err := m.DB.QueryRowx(`
+	err := m.db.QueryRowx(`
 SELECT COUNT(*)
 FROM dataset_library dsl
 WHERE dsl.user_id = ?;
@@ -460,9 +504,9 @@ WHERE dsl.user_id = ?;
 	return count, err
 }
 
-func (m *MysqlRepository) FindDatasetFromDatasetLibraryByDatasetId(userId int64, datasetId int64) (Dataset, error) {
+func (m *mysqlRepository) FindDatasetFromDatasetLibraryByDatasetId(userId int64, datasetId int64) (Dataset, error) {
 	var dataset Dataset
-	err := m.DB.QueryRowx(`
+	err := m.db.QueryRowx(`
 SELECT ds.id              "id",
        ds.user_id         "user_id",
        ds.dataset_no      "dataset_no",
@@ -471,12 +515,16 @@ SELECT ds.id              "id",
        ds.description     "description",
        ds.public          "public",
        ds.status          "status",
+       ds.image_id        "image_id",
+       ds.kind            "kind",
        ds.create_time     "create_time",
        ds.update_time     "update_time",
        dsl.usable         "usable",
-       dsl.id IS NOT NULL "in_library"
+       dsl.id IS NOT NULL "in_library",
+       i.url              "thumbnail_url"
 FROM dataset ds
          JOIN dataset_library dsl ON ds.id = dsl.dataset_id
+         LEFT JOIN image i on ds.image_id = i.id
 WHERE dsl.user_id = ?
   AND dsl.dataset_id = ?;
 `, userId, datasetId).StructScan(&dataset)
@@ -484,8 +532,8 @@ WHERE dsl.user_id = ?
 	return dataset, err
 }
 
-func (m *MysqlRepository) AddDatasetToDatasetLibrary(userId int64, datasetId int64) error {
-	_, err := m.DB.Exec(`
+func (m *mysqlRepository) AddDatasetToDatasetLibrary(userId int64, datasetId int64) error {
+	_, err := m.db.Exec(`
 INSERT INTO dataset_library (user_id, dataset_id, usable)
 SELECT ? "user_id", ds.id "dataset_id", (ds.public IS TRUE OR ds.user_id = ?) "usable"
 FROM dataset ds
@@ -495,8 +543,8 @@ WHERE ds.id = ? AND ds.status = 'EXIST';
 	return err
 }
 
-func (m *MysqlRepository) DeleteDatasetFromDatasetLibrary(userId int64, datasetId int64) error {
-	_, err := m.DB.Exec(`
+func (m *mysqlRepository) DeleteDatasetFromDatasetLibrary(userId int64, datasetId int64) error {
+	_, err := m.db.Exec(`
 DELETE dsl
 FROM dataset_library dsl
 WHERE dsl.user_id = ?

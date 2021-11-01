@@ -3,6 +3,7 @@ package externalAPI
 import "net/http"
 
 type CodeConvertRequestBody struct {
+	TrainId int64       `json:"trainId"`
 	Content interface{} `json:"content"`
 	Config  interface{} `json:"config"`
 }
