@@ -563,7 +563,7 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	train, err := h.TrainRepository.Find(WithEpochTrainId(trainId))
+	train, err := h.TrainRepository.Find(WithTrainTrainId(trainId))
 	if err != nil {
 		log.Warnw(
 			"Can't query with train id",
