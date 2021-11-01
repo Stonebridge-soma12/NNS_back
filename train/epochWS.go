@@ -36,6 +36,7 @@ type Bridge struct {
 
 func NewBridge(epochRepository EpochRepository, trainRepository TrainRepository, trainLogRepository TrainLogRepository) *Bridge {
 	bridge := Bridge{
+		clients: map[int64]*Client{},
 		epochRepository:    epochRepository,
 		trainRepository:    trainRepository,
 		trainLogRepository: trainLogRepository,
