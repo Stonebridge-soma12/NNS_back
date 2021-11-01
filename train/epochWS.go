@@ -27,7 +27,7 @@ var upgrader = websocket.Upgrader{
 }
 
 type Bridge struct {
-	clients []*Client
+	clients map[int64]*Client
 	
 	epochRepository    EpochRepository
 	trainRepository    TrainRepository
@@ -207,28 +207,22 @@ func (b *Bridge) MonitorWsHandler(w http.ResponseWriter, r *http.Request) {
 		TrainId: train.Id,
 	}
 
-	b.clients = append(b.clients, client)
+	b.clients[train.Id] = client
 
 	go client.writePump()
 }
 
 func (b *Bridge) Close(tid int64) {
-	for i, client := range b.clients {
-		if client.TrainId == tid {
-			b.clients = append(b.clients[:i], b.clients[i+1:]...)
-			client.conn.Close()
-			close(client.send)
-			break
-		}
+	if client, ok := b.clients[tid]; ok {
+		client.conn.Close()
+		close(client.send)
+		delete(b.clients, tid)
 	}
 }
 
 func (b *Bridge) Send(tid int64, monitor *Monitor) {
-	for _, client := range b.clients {
-		if client.TrainId == tid {
-			client.send <- monitor
-			break
-		}
+	if client, ok := b.clients[tid]; ok {
+		client.send <- monitor
 	}
 }
 
