@@ -206,7 +206,7 @@ func (r *room) onMessage(data []byte, reader *Client) {
 		elements := r.projectContent["flowState"].(map[string]interface{})["elements"].([]interface{})
 		for _, element := range elements {
 			if element.(map[string]interface{})["id"] == body.BlockID {
-				element.(map[string]interface{})["data"].(map[string]interface{})["config"].(map[string]interface{})[body.Config.Name] = body.Config.Value
+				element.(map[string]interface{})["data"].(map[string]interface{})["param"].(map[string]interface{})[body.Config.Name] = body.Config.Value
 				break
 			}
 		}
