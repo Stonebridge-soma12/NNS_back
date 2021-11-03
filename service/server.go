@@ -224,6 +224,6 @@ func generateHttpClient() *http.Client {
 
 	return &http.Client{
 		Transport: &defaultTransport,
-		Timeout:   time.Second * 10,
+		Timeout:   time.Second * 60,
 	}
 }
