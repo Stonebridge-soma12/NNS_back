@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/elixter/Querybuilder"
 	"github.com/jmoiron/sqlx"
+	"nns_back/log"
 )
 
 const (
@@ -247,6 +248,8 @@ func (tdb *TrainDbRepository) Find(opts ...query.Option) (Train, error) {
 	if err != nil {
 		return Train{}, nil
 	}
+
+	log.Debug(builder.QueryString, builder.Args)
 
 	var train Train
 	row := tdb.DB.QueryRow(builder.QueryString, builder.Args...)
