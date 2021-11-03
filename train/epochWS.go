@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"log"
 	"net/http"
+	"nns_back/log"
 	"nns_back/util"
 	"strconv"
 	"time"
@@ -28,7 +28,7 @@ var upgrader = websocket.Upgrader{
 
 type Bridge struct {
 	clients map[int64]*Client
-	
+
 	epochRepository    EpochRepository
 	trainRepository    TrainRepository
 	trainLogRepository TrainLogRepository
@@ -36,7 +36,7 @@ type Bridge struct {
 
 func NewBridge(epochRepository EpochRepository, trainRepository TrainRepository, trainLogRepository TrainLogRepository) *Bridge {
 	bridge := Bridge{
-		clients: map[int64]*Client{},
+		clients:            map[int64]*Client{},
 		epochRepository:    epochRepository,
 		trainRepository:    trainRepository,
 		trainLogRepository: trainLogRepository,
@@ -64,13 +64,14 @@ type Client struct {
 func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	tid, err := strconv.ParseInt(mux.Vars(r)["trainId"], 10, 0)
-	fmt.Println(tid)
+
+	log.Debug(tid)
 
 	var epoch Epoch
 	epoch.TrainId = tid
 	err = epoch.Bind(r)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -78,20 +79,20 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = b.epochRepository.Insert(epoch)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
 	train, err := b.trainRepository.Find(WithTrainTrainId(epoch.TrainId))
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 	train.Update(epoch)
 
 	err = b.trainRepository.Update(train)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -107,14 +108,14 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	)
 
 	trainLog := TrainLog{
-		TrainId: tid,
-		Message: msg,
+		TrainId:    tid,
+		Message:    msg,
 		StatusCode: 200,
 	}
 
 	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -131,7 +132,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	var trainLog TrainLog
 	err := trainLog.Bind(r)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -141,12 +142,12 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	trainLog.Message = currentTime + ": " + trainLog.Message
 	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 
 	train, err := b.trainRepository.Find(WithTrainTrainId(trainLog.TrainId))
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -154,14 +155,14 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 		train.Status = TrainStatusFinish
 		err = b.trainRepository.Update(train)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			return
 		}
 	} else if trainLog.StatusCode >= 400 {
 		train.Status = TrainStatusError
 		err = b.trainRepository.Update(train)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			return
 		}
 	}
@@ -174,17 +175,15 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 func (b *Bridge) MonitorWsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
-		log.Println(
-			"failed to conversion interface to int64",
+		log.Errorw("failed to conversion interface to int64",
 			"error code", util.ErrInternalServerError,
-			"context value", r.Context().Value("userId"),
-			)
+			"context value", r.Context().Value("userId"))
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
@@ -193,19 +192,20 @@ func (b *Bridge) MonitorWsHandler(w http.ResponseWriter, r *http.Request) {
 	projectNo, _ := strconv.Atoi(vars["projectNo"])
 	trainNo, _ := strconv.Atoi(vars["trainNo"])
 
-	fmt.Println(userId, projectNo, trainNo)
+	log.Debug(userId, projectNo, trainNo)
 
 	train, err := b.trainRepository.Find(WithTrainUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
-	fmt.Println(train)
 
-	fmt.Println("Train id", train.Id)
+	log.Debug(train)
+
+	log.Debugf("Train id: %d", train.Id)
 
 	client := &Client{
-		conn: conn,
-		send: make(chan *Monitor),
+		conn:    conn,
+		send:    make(chan *Monitor),
 		TrainId: train.Id,
 	}
 
@@ -239,7 +239,7 @@ func (c *Client) writePump() {
 
 			err := c.write(msg)
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 				return
 			}
 		}
