@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.5.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.3.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.11.1
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/elixter/Querybuilder v0.0.0-20211006122734-a8d7a83217cd
 	github.com/felixge/httpsnoop v1.0.2 // indirect
 	github.com/gabriel-vasile/mimetype v1.3.1

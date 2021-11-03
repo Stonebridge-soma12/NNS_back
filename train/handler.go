@@ -453,7 +453,7 @@ func startNewTrain(datasetRepository dataset.Repository, trainRepository TrainRe
 		},
 		ProjectNo: project.ProjectNo,
 	}
-	
+
 	if err := fitRequest(fitter, payload); err != nil {
 		return errors.Wrapf(err, "fitRequest(fitter: %v, payload: %v", fitter, spew.Sdump(payload))
 	}
