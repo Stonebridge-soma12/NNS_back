@@ -75,7 +75,7 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(epoch)
+	log.Debug(epoch)
 
 	err = b.epochRepository.Insert(epoch)
 	if err != nil {
@@ -123,7 +123,7 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 		Epoch:    epoch,
 		TrainLog: trainLog,
 	}
-	fmt.Println(monitor)
+	log.Debug(monitor)
 
 	b.Send(epoch.TrainId, &monitor)
 }
@@ -136,7 +136,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(trainLog)
+	log.Debug(trainLog)
 
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	trainLog.Message = currentTime + ": " + trainLog.Message
@@ -167,7 +167,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fmt.Println("Train finished")
+	log.Debug("Train finished")
 
 	b.Close(trainLog.TrainId)
 }
