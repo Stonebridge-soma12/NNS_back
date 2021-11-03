@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -452,9 +453,9 @@ func startNewTrain(datasetRepository dataset.Repository, trainRepository TrainRe
 		},
 		ProjectNo: project.ProjectNo,
 	}
-
+	
 	if err := fitRequest(fitter, payload); err != nil {
-		return errors.Wrapf(err, "fitRequest(fitter: %v, payload: %v", fitter, payload)
+		return errors.Wrapf(err, "fitRequest(fitter: %v, payload: %v", fitter, spew.Sdump(payload))
 	}
 
 	newTrain.Status = TrainStatusTrain
