@@ -524,6 +524,7 @@ type DatasetDetailDto struct {
 	FeatureNum int        `json:"featureNum"`
 	Feature    []string   `json:"feature"`
 	Rows       [][]string `json:"rows"`
+	Kind       Kind       `json:"kind"`
 }
 
 func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
@@ -574,6 +575,7 @@ func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
 		FeatureNum: len(records[0]),
 		Feature:    records[0],
 		Rows:       records[1:],
+		Kind:       ds.Kind,
 	}
 	util.WriteJson(w, http.StatusOK, responseBody)
 }
