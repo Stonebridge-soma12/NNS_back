@@ -174,6 +174,9 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 		},
 		DatasetRepository:       datasetRepo,
 		DatasetConfigRepository: datasetConfigRepo,
+		TrainLogRepository: &train.TrainLogDbRepository{
+			DB: db,
+		},
 		AwsS3Uploader: &cloud.AwsS3Client{
 			Client:     s3Client,
 			BucketName: trainedModelBucketName,
@@ -185,6 +188,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.DeleteTrainHistoryHandler).Methods(_Delete...)
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}", trainHandler.UpdateTrainHistoryHandler).Methods(_Put...)
 	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/epoch", trainHandler.GetTrainHistoryEpochsHandler).Methods(_Get...)
+	authRouter.HandleFunc("/api/project/{projectNo:[0-9]+}/train/{trainNo:[0-9]+}/log", trainHandler.GetTrainLogListHandler).Methods(_Get...)
 
 	router.HandleFunc("/api/train/{trainId:[0-9]+}/model", trainHandler.SaveTrainModelHandler).Methods(_Post...)
 
