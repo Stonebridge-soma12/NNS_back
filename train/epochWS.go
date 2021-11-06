@@ -132,23 +132,23 @@ func (b *Bridge) TrainLogHandler(w http.ResponseWriter, r *http.Request) {
 	var trainLog TrainLog
 	err := trainLog.Bind(r)
 	if err != nil {
-		log.Println(err)
+		log.Debug(err)
 		return
 	}
 
-	log.Println(trainLog)
+	log.Debug(trainLog)
 
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	trainLog.Message = currentTime + ": " + trainLog.Message
 	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
-		log.Println(err)
+		log.Debug(err)
 	}
 
 	monitor := Monitor{
 		TrainLog: trainLog,
 	}
-	log.Println(monitor)
+	log.Debug(monitor)
 
 	b.Send(trainLog.TrainId, &monitor)
 }
