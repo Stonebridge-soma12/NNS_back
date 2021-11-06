@@ -128,6 +128,31 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	b.Send(epoch.TrainId, &monitor)
 }
 
+func (b *Bridge) TrainLogHandler(w http.ResponseWriter, r *http.Request) {
+	var trainLog TrainLog
+	err := trainLog.Bind(r)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println(trainLog)
+
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
+	trainLog.Message = currentTime + ": " + trainLog.Message
+	err = b.trainLogRepository.Insert(trainLog)
+	if err != nil {
+		log.Println(err)
+	}
+
+	monitor := Monitor{
+		TrainLog: trainLog,
+	}
+	log.Println(monitor)
+
+	b.Send(trainLog.TrainId, &monitor)
+}
+
 func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	var trainLog TrainLog
 	err := trainLog.Bind(r)
