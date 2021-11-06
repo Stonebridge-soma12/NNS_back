@@ -34,6 +34,7 @@ type Handler struct {
 	EpochRepository         EpochRepository
 	DatasetRepository       dataset.Repository
 	DatasetConfigRepository datasetConfig.Repository
+	TrainLogRepository      TrainLogRepository
 	AwsS3Uploader           cloud.AwsS3Uploader
 }
 
@@ -589,4 +590,64 @@ func (h *Handler) SaveTrainModelHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) GetTrainLogListHandler(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value("userId").(int64)
+	if !ok {
+		log.Errorw(
+			"failed to conversion interface to int64",
+			"error code", util.ErrInternalServerError,
+			"context value", r.Context().Value("userId"),
+		)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	projectNo, err := strconv.Atoi(mux.Vars(r)["projectNo"])
+	if err != nil {
+		log.Warnw(
+			"failed to convert projectNo to int",
+			"error code", util.ErrInvalidPathParm,
+			"error", err,
+			"input value", mux.Vars(r)["projectNo"],
+		)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
+		return
+	}
+
+	trainNo, err := strconv.Atoi(mux.Vars(r)["trainNo"])
+	if err != nil {
+		log.Warnw(
+			"failed to convert trainNo to int",
+			"error code", util.ErrInvalidPathParm,
+			"error", err,
+			"input value", mux.Vars(r)["trainNo"],
+		)
+		util.WriteError(w, http.StatusBadRequest, util.ErrInvalidPathParm)
+		return
+	}
+
+	trainLogs, err := h.TrainLogRepository.FindAll(WithTrainUserId(userId), WithProjectProjectNo(projectNo), WithTrainTrainNo(trainNo))
+	if err != nil {
+		log.Warnw(
+			"Can't query with userId, projectNo, trainNo",
+			"error code", util.ErrInvalidQueryParm,
+			"error", err,
+			"input value", userId, projectNo, trainNo,
+		)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInvalidQueryParm)
+		return
+	}
+
+	type trainLogListResponseBody struct {
+		TrainLogs	[]TrainLog `json:"trainLogs"`
+	}
+
+	var resp trainLogListResponseBody
+	for _, trainLog := range trainLogs {
+		resp.TrainLogs = append(resp.TrainLogs, trainLog)
+	}
+
+	util.WriteJson(w, http.StatusOK, resp)
 }
