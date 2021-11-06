@@ -127,7 +127,7 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 	b.Send(epoch.TrainId, &monitor)
 }
 
-func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Bridge) TrainLogHandler(w http.ResponseWriter, r *http.Request) {
 	var trainLog TrainLog
 	err := trainLog.Bind(r)
 	if err != nil {
@@ -152,7 +152,7 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	b.Send(trainLog.TrainId, &monitor)
 }
 
-func (b *Bridge) TrainLogHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 	var trainLog TrainLog
 	err := trainLog.Bind(r)
 	if err != nil {
