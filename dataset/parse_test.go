@@ -94,7 +94,7 @@ func Test_save(t *testing.T) {
 			f, err := os.Open(tt.path)
 			assertions.Nil(err)
 
-			url, err := save(&awsS3Client, f)
+			url, _, err := save(&awsS3Client, f)
 			if (err != nil) != tt.wanterr {
 				t.Errorf("save() error = %v, wanterr %v", err, tt.wanterr)
 				return

@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"nns_back/cloud"
+	"nns_back/log"
 )
 
 const (
@@ -125,6 +126,8 @@ func zipToCsv(storage *cloud.AwsS3Client, file multipart.File) (io.Reader, Kind,
 		if err != nil {
 			return nil, KindUnknown, err
 		}
+
+		log.Debugf("url: %s", url)
 
 		if err := csvWriter.Write([]string{url, ds.label}); err != nil {
 			return nil, KindUnknown, err
