@@ -8,6 +8,7 @@ import (
 	"nns_back/log"
 	"nns_back/util"
 	"strconv"
+	"time"
 )
 
 const (
@@ -108,6 +109,8 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 		TrainId:    tid,
 		Message:    msg,
 		StatusCode: 200,
+		CreateTime: time.Now(),
+		UpdateTime: time.Now(),
 	}
 
 	err = b.trainLogRepository.Insert(trainLog)
@@ -135,6 +138,8 @@ func (b *Bridge) TrainLogHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug(trainLog)
 
+	trainLog.CreateTime = time.Now()
+	trainLog.UpdateTime = time.Now()
 	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
 		log.Debug(err)

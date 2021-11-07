@@ -26,8 +26,8 @@ func (ldr *TrainLogDbRepository) Insert(trainLog TrainLog) error {
 	builder := query.Builder{}
 	builder.AddInsert(
 			"train_log",
-			"train_id, msg, status_code",
-			":train_id, :msg, :status_code",
+			"train_id, msg, status_code, create_time, update_time",
+			":train_id, :msg, :status_code, :create_time, :update_time",
 		)
 
 	err := builder.Build()
