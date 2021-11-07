@@ -8,7 +8,7 @@ import (
 const (
 	defaultSelectTrainLogQuery = "SELECT id, train_id, msg, status_code, create_time, update_time FROM train_log "
 	defaultDeleteTrainLogQuery = "DELETE FROM train_log "
-	defaultSelectTrainLogColumns = "id, train_id, msg, status_code, create_time, update_time"
+	defaultSelectTrainLogColumns = "tl.id, tl.train_id, tl.msg, tl.status_code, tl.create_time, tl.update_time"
 )
 
 type TrainLogDbRepository struct {
@@ -78,14 +78,16 @@ func (ldr *TrainLogDbRepository) Find(opts ...query.Option) (TrainLog, error) {
 func (ldr *TrainLogDbRepository) FindAll(opts ... query.Option) ([]TrainLog, error) {
 	builder := query.ApplyQueryOptions(opts...)
 	builder.AddSelect(defaultSelectTrainLogColumns).
-		AddFrom("train_log")
+		AddFrom("train_log tl").
+		AddJoin("train t ON tl.train_id = t.id").
+		AddJoin("project p ON t.project_id = p.id")
 
 	err := builder.Build()
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := ldr.DB.Queryx(builder.QueryString, builder.Args)
+	rows, err := ldr.DB.Queryx(builder.QueryString, builder.Args...)
 	if err != nil {
 		return nil, err
 	}
