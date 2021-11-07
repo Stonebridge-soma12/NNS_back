@@ -8,14 +8,13 @@ import (
 	"nns_back/log"
 	"nns_back/util"
 	"strconv"
-	"time"
 )
 
 const (
 	socketReadSize  = 1024
 	socketWriteSize = 1024
 
-	epochLogFormat = "%s Epoch=%d Accuracy=%g Loss=%g Val_accuracy=%g Val_Loss=%g Learning_rate=%g"
+	epochLogFormat = "Epoch=%d Accuracy=%g Loss=%g Val_accuracy=%g Val_Loss=%g Learning_rate=%g"
 
 	trainId = "train_id"
 )
@@ -62,7 +61,6 @@ type Client struct {
 }
 
 func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
-	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	tid, err := strconv.ParseInt(mux.Vars(r)["trainId"], 10, 0)
 
 	log.Debug(tid)
@@ -98,7 +96,6 @@ func (b *Bridge) NewEpochHandler(w http.ResponseWriter, r *http.Request) {
 
 	msg := fmt.Sprintf(
 		epochLogFormat,
-		currentTime,
 		epoch.Epoch,
 		epoch.Acc,
 		epoch.Loss,
@@ -138,8 +135,6 @@ func (b *Bridge) TrainLogHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug(trainLog)
 
-	currentTime := time.Now().Format("2006-01-02 15:04:05")
-	trainLog.Message = currentTime + ": " + trainLog.Message
 	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
 		log.Debug(err)
@@ -163,8 +158,6 @@ func (b *Bridge) TrainReplyHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug(trainLog)
 
-	currentTime := time.Now().Format("2006-01-02 15:04:05")
-	trainLog.Message = currentTime + ": " + trainLog.Message
 	err = b.trainLogRepository.Insert(trainLog)
 	if err != nil {
 		log.Error(err)
