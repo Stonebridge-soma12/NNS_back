@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"fmt"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"io"
@@ -43,6 +44,42 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	// upload origin
+	mType, err := mimetype.DetectReader(file)
+	if err != nil {
+		log.Errorf("failed to detect file type: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		log.Errorf("failed to file seek: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	var originUrl string
+	switch {
+	case mType.Is(_csv):
+		originUrl, err = h.AwsS3Client.UploadFile(file, cloud.WithContentType(_csv), cloud.WithExtension("csv"))
+	case mType.Is(_zip):
+		originUrl, err = h.AwsS3Client.UploadFile(file, cloud.WithContentType(_zip), cloud.WithExtension("zip"))
+	default:
+		originUrl, err = h.AwsS3Client.UploadFile(file)
+	}
+	if err != nil {
+		log.Errorf("failed to upload origin file: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
+	// reset file descriptor
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		log.Errorf("failed to file seek: %v", err)
+		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+		return
+	}
+
 	url, kind, err := save(h.AwsS3Client, file)
 	if err != nil {
 		if IsUnsupportedContentTypeError(err) {
@@ -80,6 +117,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		UserID:      userID,
 		DatasetNo:   lastDatasetNo + 1,
 		URL:         url,
+		OriginURL:   originUrl,
 		Name:        sql.NullString{},
 		Description: sql.NullString{},
 		Public:      sql.NullBool{},
