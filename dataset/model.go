@@ -10,6 +10,7 @@ type Dataset struct {
 	UserID      int64          `db:"user_id"` // uploader ID
 	DatasetNo   int64          `db:"dataset_no"`
 	URL         string         `db:"url"`         // AWS S3 URL, unique
+	OriginURL   string         `db:"origin_url"`  // AWS S3 URL, unique, object
 	Name        sql.NullString `db:"name"`        // dataset name, unique
 	Description sql.NullString `db:"description"` // dataset description
 	Public      sql.NullBool   `db:"public"`

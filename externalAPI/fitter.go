@@ -20,6 +20,7 @@ type FitRequestBodyDataSet struct {
 	Shuffle       bool                               `json:"shuffle"`
 	Label         string                             `json:"label"`
 	Normalization FitRequestBodyDataSetNormalization `json:"normalization"`
+	Kind          string                             `json:"kind"`
 }
 
 type FitRequestBodyDataSetNormalization struct {

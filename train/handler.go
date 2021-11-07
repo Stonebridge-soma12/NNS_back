@@ -451,6 +451,7 @@ func startNewTrain(datasetRepository dataset.Repository, trainRepository TrainRe
 				Usage:  newTrain.TrainConfig.DatasetNormalizationUsage,
 				Method: newTrain.TrainConfig.DatasetNormalizationMethod.String,
 			},
+			Kind: string(dataset.Kind),
 		},
 		ProjectNo: project.ProjectNo,
 	}
@@ -484,7 +485,7 @@ func createNewTrain(userId int64, nextTrainNo int64, project model.Project, data
 		TrainConfig: TrainConfig{
 			//Id:              0,
 			//TrainId:         0,
-			TrainDatasetUrl:           dataset.URL,
+			TrainDatasetUrl:           dataset.OriginURL,
 			ValidDatasetUrl:           sql.NullString{},
 			DatasetShuffle:            config.Shuffle,
 			DatasetLabel:              config.Label,
