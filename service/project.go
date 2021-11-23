@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"nns_back/externalAPI"
 	"nns_back/log"
@@ -737,16 +737,14 @@ func (h *ProjectHandler) GetPythonCodeHandler(w http.ResponseWriter, r *http.Req
 	}
 	defer resp.Body.Close()
 
-	// response
-	w.Header().Set("Content-Disposition", "attachment; filename=model.py")
-	w.Header().Set("Content-Type", "text/x-python; charset=utf-8")
-	if _, err := io.Copy(w, resp.Body); err != nil {
-		log.Errorw("failed to copy file",
-			"error code", util.ErrInternalServerError,
-			"error", err)
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Errorf("failed to copy file: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
+	
+	util.WriteJson(w, http.StatusOK, util.ResponseBody{"code":string(responseBytes)})
 }
 
 func (h *ProjectHandler) GenerateShareKeyHandler(w http.ResponseWriter, r *http.Request) {
