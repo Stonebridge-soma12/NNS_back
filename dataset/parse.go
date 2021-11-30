@@ -37,6 +37,7 @@ func IsUnsupportedContentTypeError(err error) bool {
 
 func uploadAsync(storage *cloud.AwsS3Client, file multipart.File, datasetRepo Repository, datasetEntity Dataset) {
 	log.Debugf("start to upload dataset asynchronously")
+	defer file.Close()
 
 	// upload origin file
 	mType, err := mimetype.DetectReader(file)

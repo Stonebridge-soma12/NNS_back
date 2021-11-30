@@ -41,7 +41,6 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
-	defer file.Close()
 
 	userID, ok := r.Context().Value("userId").(int64)
 	if !ok {
