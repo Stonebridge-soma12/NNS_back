@@ -9,8 +9,8 @@ type Dataset struct {
 	ID          int64          `db:"id"`      // primary key
 	UserID      int64          `db:"user_id"` // uploader ID
 	DatasetNo   int64          `db:"dataset_no"`
-	URL         string         `db:"url"`         // AWS S3 URL, unique
-	OriginURL   string         `db:"origin_url"`  // AWS S3 URL, unique, object
+	URL         sql.NullString `db:"url"`         // AWS S3 URL, unique
+	OriginURL   sql.NullString `db:"origin_url"`  // AWS S3 URL, unique, object
 	Name        sql.NullString `db:"name"`        // dataset name, unique
 	Description sql.NullString `db:"description"` // dataset description
 	Public      sql.NullBool   `db:"public"`
@@ -39,8 +39,12 @@ const (
 	maxDatasetDescription = 2000
 )
 
+// UPLOADING -> UPLOADED_F -> EXIST
+// UPLOADING -> UPLOADED_D -> EXIST
 const (
-	EXIST    = "EXIST"
-	DELETED  = "DELETED"
-	UPLOADED = "UPLOADED"
+	EXIST      = "EXIST"
+	DELETED    = "DELETED"
+	UPLOADING  = "UPLOADING"
+	UPLOADED_F = "UPLOADED_F"
+	UPLOADED_D = "UPLOADED_D"
 )

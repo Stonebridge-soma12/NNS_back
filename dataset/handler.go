@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"fmt"
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"io"
@@ -44,55 +43,6 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// upload origin
-	mType, err := mimetype.DetectReader(file)
-	if err != nil {
-		log.Errorf("failed to detect file type: %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		log.Errorf("failed to file seek: %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-
-	var originUrl string
-	switch {
-	case mType.Is(_csv):
-		originUrl, err = h.AwsS3Client.UploadFile(file, cloud.WithContentType(_csv), cloud.WithExtension("csv"))
-	case mType.Is(_zip):
-		originUrl, err = h.AwsS3Client.UploadFile(file, cloud.WithContentType(_zip), cloud.WithExtension("zip"))
-	default:
-		originUrl, err = h.AwsS3Client.UploadFile(file)
-	}
-	if err != nil {
-		log.Errorf("failed to upload origin file: %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-
-	// reset file descriptor
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		log.Errorf("failed to file seek: %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-
-	url, kind, err := save(h.AwsS3Client, file)
-	if err != nil {
-		if IsUnsupportedContentTypeError(err) {
-			log.Warn(err)
-			util.WriteError(w, http.StatusBadRequest, util.ErrUnSupportedContentType)
-			return
-		}
-
-		log.Errorf("failed to save file: %v", err)
-		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
-		return
-	}
-
 	userID, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorf("failed to get userId")
@@ -116,14 +66,14 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		ID:          0,
 		UserID:      userID,
 		DatasetNo:   lastDatasetNo + 1,
-		URL:         url,
-		OriginURL:   originUrl,
+		URL:         sql.NullString{},
+		OriginURL:   sql.NullString{},
 		Name:        sql.NullString{},
 		Description: sql.NullString{},
 		Public:      sql.NullBool{},
-		Status:      UPLOADED,
+		Status:      UPLOADING,
 		ImageId:     sql.NullInt64{},
-		Kind:        kind,
+		Kind:        KindUnknown,
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 	}
@@ -134,6 +84,8 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
+
+	go uploadAsync(h.AwsS3Client, file, h.Repository, newDataset)
 
 	util.WriteJson(w, http.StatusCreated, util.ResponseBody{"id": newDataset.ID})
 }
@@ -197,9 +149,15 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dataset.Status = EXIST
+	switch dataset.Status {
+	case UPLOADING:
+		dataset.Status = UPLOADED_D
+	case UPLOADED_F:
+		dataset.Status = EXIST
+	}
 	dataset.Name = sql.NullString{String: body.Name, Valid: true}
 	dataset.Description = sql.NullString{String: body.Description, Valid: true}
-	dataset.Status = EXIST
 	dataset.Public = sql.NullBool{Bool: body.Public, Valid: true}
 	dataset.UpdateTime = time.Now()
 	dataset.ImageId = sql.NullInt64{Int64: body.Thumbnail.ImageId, Valid: body.Thumbnail.Valid}
@@ -246,6 +204,7 @@ type DatasetDto struct {
 	InLibrary   bool      `json:"inLibrary"`
 	Thumbnail   Thumbnail `json:"thumbnail"`
 	Kind        Kind      `json:"kind"`
+	IsUploading bool      `json:"isUploading"`
 }
 
 type Thumbnail struct {
@@ -261,7 +220,6 @@ const (
 	_titleLike       = "titleLike"
 )
 
-// TODO: Add author data to response body
 func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
@@ -271,7 +229,7 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	searchType := r.URL.Query().Get("searchType")
-	searchContent := r.URL.Query().Get("searchContent")
+	//searchContent := r.URL.Query().Get("searchContent")
 
 	var (
 		count    int64
@@ -280,16 +238,16 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	)
 
 	switch searchType {
-	case _createrName:
-		count, err = h.Repository.CountPublicByUserName(searchContent)
-	case _createrNameLike:
-		count, err = h.Repository.CountPublicByUserNameLike(searchContent)
-	case _title:
-		count, err = h.Repository.CountPublicByTitle(searchContent)
-	case _titleLike:
-		count, err = h.Repository.CountPublicByTitleLike(searchContent)
+	//case _createrName:
+	//	count, err = h.Repository.CountPublicByUserName(searchContent)
+	//case _createrNameLike:
+	//	count, err = h.Repository.CountPublicByUserNameLike(searchContent)
+	//case _title:
+	//	count, err = h.Repository.CountPublicByTitle(searchContent)
+	//case _titleLike:
+	//	count, err = h.Repository.CountPublicByTitleLike(searchContent)
 	default:
-		count, err = h.Repository.CountPublic()
+		count, err = h.Repository.CountPublic(userId)
 	}
 	if err != nil {
 		log.Errorf("failed to count dataset: %v", err)
@@ -300,14 +258,14 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	pagination := util.NewPaginationFromRequest(r, count)
 
 	switch searchType {
-	case _createrName:
-		datasets, err = h.Repository.FindAllPublicByUserName(userId, searchContent, pagination.Offset(), pagination.Limit())
-	case _createrNameLike:
-		datasets, err = h.Repository.FindAllPublicByUserNameLike(userId, searchContent, pagination.Offset(), pagination.Limit())
-	case _title:
-		datasets, err = h.Repository.FindAllPublicByTitle(userId, searchContent, pagination.Offset(), pagination.Limit())
-	case _titleLike:
-		datasets, err = h.Repository.FindAllPublicByTitleLike(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//case _createrName:
+	//	datasets, err = h.Repository.FindAllPublicByUserName(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//case _createrNameLike:
+	//	datasets, err = h.Repository.FindAllPublicByUserNameLike(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//case _title:
+	//	datasets, err = h.Repository.FindAllPublicByTitle(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//case _titleLike:
+	//	datasets, err = h.Repository.FindAllPublicByTitleLike(userId, searchContent, pagination.Offset(), pagination.Limit())
 	default:
 		datasets, err = h.Repository.FindAllPublic(userId, pagination.Offset(), pagination.Limit())
 	}
@@ -335,7 +293,8 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 				ImageId: val.ImageId.Int64,
 				Url:     val.ThumbnailUrl.String,
 			},
-			Kind: val.Kind,
+			Kind:        val.Kind,
+			IsUploading: val.Status != EXIST,
 		})
 	}
 
@@ -433,7 +392,8 @@ func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 				ImageId: val.ImageId.Int64,
 				Url:     val.ThumbnailUrl.String,
 			},
-			Kind: val.Kind,
+			Kind:        val.Kind,
+			IsUploading: val.Status != EXIST,
 		})
 	}
 
@@ -590,7 +550,13 @@ func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.HttpClient.Get(ds.URL)
+	// 아직 업로드 완료되지 않은 데이터셋을 미리보기하려하면 다른 응답 내려줌
+	if ds.Status != EXIST {
+		util.WriteError(w, http.StatusBadRequest, "Dataset upload not complete yet")
+		return
+	}
+
+	resp, err := h.HttpClient.Get(ds.URL.String)
 	if err != nil {
 		log.Errorw("failed to http get",
 			"error", err,

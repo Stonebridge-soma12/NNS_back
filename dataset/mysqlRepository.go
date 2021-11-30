@@ -26,14 +26,14 @@ func NewMysqlRepository(db *sqlx.DB) Repository {
 //	return count, err
 //}
 
-func (m *mysqlRepository) CountPublic() (int64, error) {
+func (m *mysqlRepository) CountPublic(userId int64) (int64, error) {
 	var count int64
 	err := m.db.QueryRowx(`
 SELECT count(*)
 FROM dataset ds
 WHERE ds.public = TRUE
-  AND ds.status = 'EXIST';
-`).Scan(&count)
+  AND (ds.status = 'EXIST' or (ds.status != 'DELETED' and ds.user_id = ?));
+`, userId).Scan(&count)
 	return count, err
 }
 
@@ -111,10 +111,10 @@ FROM dataset ds
                     WHERE idsl.user_id = ?) dsl on ds.id = dsl.dataset_id
          LEFT JOIN image i on ds.image_id = i.id
 WHERE ds.public = TRUE
-  AND ds.status = 'EXIST'
+  AND (ds.status = 'EXIST' or (ds.status != 'DELETED' and ds.user_id = ?))
 ORDER BY ds.id DESC
 LIMIT ?, ?;
-`, userId, offset, limit)
+`, userId, userId, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +433,7 @@ func (m *mysqlRepository) Delete(id int64) error {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec(`UPDATE dataset SET status = 'DELETED' WHERE id = ? and status = 'EXIST'`, id)
+	_, err = tx.Exec(`UPDATE dataset SET status = 'DELETED' WHERE id = ? and status != 'DELETED'`, id)
 	if err != nil {
 		return err
 	}
@@ -548,7 +548,7 @@ func (m *mysqlRepository) AddDatasetToDatasetLibrary(userId int64, datasetId int
 INSERT INTO dataset_library (user_id, dataset_id, usable)
 SELECT ? "user_id", ds.id "dataset_id", (ds.public IS TRUE OR ds.user_id = ?) "usable"
 FROM dataset ds
-WHERE ds.id = ? AND ds.status = 'EXIST';
+WHERE ds.id = ? AND ds.status != 'DELETED';
 `, userId, userId, datasetId)
 
 	return err

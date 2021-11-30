@@ -3,6 +3,7 @@ package dataset
 import (
 	"archive/zip"
 	"bytes"
+	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"github.com/gabriel-vasile/mimetype"
@@ -11,6 +12,7 @@ import (
 	"mime/multipart"
 	"nns_back/cloud"
 	"nns_back/log"
+	"time"
 )
 
 const (
@@ -31,6 +33,97 @@ func (e ErrUnSupportedContentType) Error() string {
 func IsUnsupportedContentTypeError(err error) bool {
 	_, ok := err.(ErrUnSupportedContentType)
 	return ok
+}
+
+func uploadAsync(storage *cloud.AwsS3Client, file multipart.File, datasetRepo Repository, datasetEntity Dataset) {
+	// upload origin file
+	mType, err := mimetype.DetectReader(file)
+	if err != nil {
+		log.Errorw("failed to detect file type",
+			"error", err,
+			"dataset.id", datasetEntity.ID)
+		return
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		log.Errorw("failed to file seek",
+			"error", err,
+			"dataset.id", datasetEntity.ID)
+		return
+	}
+
+	var originUrl string
+	switch {
+	case mType.Is(_csv):
+		originUrl, err = storage.UploadFile(file, cloud.WithContentType(_csv), cloud.WithExtension("csv"))
+	case mType.Is(_zip):
+		originUrl, err = storage.UploadFile(file, cloud.WithContentType(_zip), cloud.WithExtension("zip"))
+	default:
+		originUrl, err = storage.UploadFile(file)
+	}
+	if err != nil {
+		log.Errorw("failed to upload origin file",
+			"error", err,
+			"dataset.id", datasetEntity.ID)
+		return
+	}
+
+	// upload csv file
+	// reset file descriptor
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		log.Errorw("failed to file seek",
+			"error", err,
+			"dataset.id", datasetEntity.ID)
+		return
+	}
+
+	url, kind, err := save(storage, file)
+	if err != nil {
+		//if IsUnsupportedContentTypeError(err) {
+		//	log.Warn(err)
+		//}
+
+		log.Errorw("failed to save file",
+			"error", err,
+			"dataset.id", datasetEntity.ID)
+		return
+	}
+
+	datasetEntity, err = datasetRepo.FindByID(datasetEntity.ID)
+	if err != nil {
+		log.Errorw("failed to find dataset by ID",
+			"error", err,
+			"dataset.id", datasetEntity.ID)
+	}
+
+	switch datasetEntity.Status {
+	case UPLOADING:
+		datasetEntity.Status = UPLOADED_F
+	case UPLOADED_D:
+		datasetEntity.Status = EXIST
+	default:
+		// unexpected
+		log.Errorw("dataset status is unexpected",
+			"dataset.status", datasetEntity.Status,
+			"dataset.id", datasetEntity.ID)
+		return
+	}
+	datasetEntity.OriginURL = sql.NullString{
+		Valid:  true,
+		String: originUrl,
+	}
+	datasetEntity.URL = sql.NullString{
+		Valid:  true,
+		String: url,
+	}
+	datasetEntity.Kind = kind
+	datasetEntity.UpdateTime = time.Now()
+
+	if err := datasetRepo.Update(datasetEntity.ID, datasetEntity); err != nil {
+		log.Errorw("failed to update dataset",
+			"error", err,
+			"dataset.id", datasetEntity.ID)
+	}
 }
 
 func save(storage *cloud.AwsS3Client, file multipart.File) (string, Kind, error) {

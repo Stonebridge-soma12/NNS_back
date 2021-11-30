@@ -485,7 +485,7 @@ func createNewTrain(userId int64, nextTrainNo int64, project model.Project, data
 		TrainConfig: TrainConfig{
 			//Id:              0,
 			//TrainId:         0,
-			TrainDatasetUrl:           dataset.OriginURL,
+			TrainDatasetUrl:           dataset.OriginURL.String,
 			ValidDatasetUrl:           sql.NullString{},
 			DatasetShuffle:            config.Shuffle,
 			DatasetLabel:              config.Label,
