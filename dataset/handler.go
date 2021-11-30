@@ -149,7 +149,6 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataset.Status = EXIST
 	switch dataset.Status {
 	case UPLOADING:
 		dataset.Status = UPLOADED_D
