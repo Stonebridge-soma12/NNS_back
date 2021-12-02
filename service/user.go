@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
+	"nns_back/dataset"
+	"nns_back/datasetConfig"
 	"nns_back/log"
 	"nns_back/model"
 	"nns_back/repository"
@@ -16,10 +18,30 @@ import (
 	"unicode/utf8"
 )
 
-type UserHandler struct {
-	UserRepository  repository.UserRepository
-	ImageRepository repository.ImageRepository
-	SessionService  SessionService
+type userHandler struct {
+	UserRepository          repository.UserRepository
+	ImageRepository         repository.ImageRepository
+	ProjectRepository       repository.ProjectRepository
+	DatasetRepository       dataset.Repository
+	DatasetConfigRepository datasetConfig.Repository
+	SessionService          SessionService
+}
+
+func NewUserHandler(
+	userRepository repository.UserRepository,
+	imageRepository repository.ImageRepository,
+	projectRepository repository.ProjectRepository,
+	datasetRepository dataset.Repository,
+	datasetConfigRepository datasetConfig.Repository,
+	sessionService SessionService) *userHandler {
+	return &userHandler{
+		UserRepository:          userRepository,
+		ImageRepository:         imageRepository,
+		ProjectRepository:       projectRepository,
+		DatasetRepository:       datasetRepository,
+		DatasetConfigRepository: datasetConfigRepository,
+		SessionService:          sessionService,
+	}
 }
 
 type SignUpHandlerRequestBody struct {
@@ -90,7 +112,7 @@ next:
 const defaultUserProfileImage = "https://s3.ap-northeast-2.amazonaws.com/image.nns/default_profile.png"
 
 // TODO: email authentication
-func (h *UserHandler) SignUpHandler(w http.ResponseWriter, r *http.Request) {
+func (h *userHandler) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 	// bind request body
 	reqBody := SignUpHandlerRequestBody{}
 	if err := util.BindJson(r.Body, &reqBody); err != nil {
@@ -132,12 +154,19 @@ func (h *UserHandler) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 		"hashed password len", len(hashedPassword))
 
 	user := model.NewUser(reqBody.ID, hashedPassword)
-	if _, err := h.UserRepository.Insert(user); err != nil {
+	user.Id, err = h.UserRepository.Insert(user)
+	if err != nil {
 		log.Errorw("failed to insert user",
 			"error code", util.ErrInternalServerError,
 			"error", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
+	}
+
+	// create sample project (MNIST)
+	if err := CreateAutoCreatedSampleProject(user.Id, h.ProjectRepository, h.DatasetRepository, h.DatasetConfigRepository); err != nil {
+		log.Errorw("failed to create sample project",
+			"error", err)
 	}
 
 	w.WriteHeader(http.StatusCreated)
@@ -157,7 +186,7 @@ type GetUserHandlerResponseBody struct {
 }
 
 // TODO: Email verification, WebSite url syntax validation
-func (h *UserHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *userHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -247,7 +276,7 @@ func checkUserDescriptionLength(userDescription string) error {
 	return nil
 }
 
-func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *userHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -335,7 +364,7 @@ func (b UpdateUserPasswordHandlerRequestBody) Validate() error {
 	return nil
 }
 
-func (h *UserHandler) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
+func (h *userHandler) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",
@@ -392,7 +421,7 @@ func (h *UserHandler) UpdateUserPasswordHandler(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *userHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorw("failed to conversion interface to int64",

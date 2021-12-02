@@ -63,11 +63,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/image", imageHandler.UploadImage).Methods(_Post...)
 
 	// user
-	userHandler := UserHandler{
-		UserRepository:  userRepo,
-		ImageRepository: imageRepo,
-		SessionService:  sessionService,
-	}
+	userHandler := NewUserHandler(userRepo, imageRepo, projectRepo, datasetRepo, datasetConfigRepo, sessionService)
 	router.HandleFunc("/api/user", userHandler.SignUpHandler).Methods(_Post...)
 	authRouter.HandleFunc("/api/user", userHandler.GetUserHandler).Methods(_Get...)
 	authRouter.HandleFunc("/api/user", userHandler.UpdateUserHandler).Methods(_Put...)
