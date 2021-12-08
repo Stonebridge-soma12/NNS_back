@@ -25,6 +25,8 @@ const _uploadDatasetFormFileKey = "dataset"
 
 const _requestBodyTooLarge = "http: request body too large"
 
+const _defaultDatasetThumbnailUrl = "https://s3.ap-northeast-2.amazonaws.com/image.nns/NNS_logo_color.png"
+
 func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	// maximum upload of 10 MB files
 	const maxSize = 1000 << 20
@@ -276,7 +278,7 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	// make response body
 	responseDatasetDtos := make([]DatasetDto, 0, len(datasets))
 	for _, val := range datasets {
-		responseDatasetDtos = append(responseDatasetDtos, DatasetDto{
+		responseDatasetDto := DatasetDto{
 			Id:          val.ID,
 			DatasetNo:   val.DatasetNo,
 			Name:        val.Name.String,
@@ -293,7 +295,13 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 			},
 			Kind:        val.Kind,
 			IsUploading: val.Status != EXIST,
-		})
+		}
+
+		if !responseDatasetDto.Thumbnail.Valid {
+			responseDatasetDto.Thumbnail.Url = _defaultDatasetThumbnailUrl
+		}
+		
+		responseDatasetDtos = append(responseDatasetDtos, responseDatasetDto)
 	}
 
 	response := GetListResponseBody{
