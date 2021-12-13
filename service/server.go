@@ -139,14 +139,10 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 
 	s3Client := s3.NewFromConfig(cfg)
 
-	datasetHandler := &dataset.Handler{
-		Repository: datasetRepo,
-		AwsS3Client: &cloud.AwsS3Client{
-			Client:     s3Client,
-			BucketName: datasetBucketName,
-		},
-		HttpClient: httpClient,
-	}
+	datasetHandler := dataset.NewDatasetHandler(userRepo, datasetRepo, &cloud.AwsS3Client{
+		Client:     s3Client,
+		BucketName: datasetBucketName,
+	}, httpClient)
 
 	authRouter.HandleFunc("/api/datasets", datasetHandler.GetList).Methods(_Get...)
 	authRouter.HandleFunc("/api/dataset/file", datasetHandler.UploadFile).Methods(_Post...)
@@ -158,7 +154,7 @@ func Start(port string, db *sqlx.DB, sessionStore sessions.Store) {
 	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.DeleteDatasetFromLibrary).Methods(_Delete...)
 	authRouter.HandleFunc("/api/dataset/library/{datasetId:[0-9]+}", datasetHandler.GetDatasetDetail).Methods(_Get...)
 
-	// Train Handler
+	// Train handler
 	trainHandler := train.Handler{
 		Fitter:            externalAPI.NewFitter(httpClient),
 		ProjectRepository: projectRepo,

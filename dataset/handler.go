@@ -10,15 +10,26 @@ import (
 	"net/http"
 	"nns_back/cloud"
 	"nns_back/log"
+	"nns_back/repository"
 	"nns_back/util"
 	"time"
 	"unicode/utf8"
 )
 
-type Handler struct {
-	Repository  Repository
-	AwsS3Client *cloud.AwsS3Client
-	HttpClient  *http.Client
+type handler struct {
+	userRepository    repository.UserRepository
+	datasetRepository Repository
+	awsS3Client       *cloud.AwsS3Client
+	httpClient        *http.Client
+}
+
+func NewDatasetHandler(userRepository repository.UserRepository, datasetRepository Repository, awsS3Client *cloud.AwsS3Client, httpClient *http.Client) *handler {
+	return &handler{
+		userRepository:    userRepository,
+		datasetRepository: datasetRepository,
+		awsS3Client:       awsS3Client,
+		httpClient:        httpClient,
+	}
 }
 
 const _uploadDatasetFormFileKey = "dataset"
@@ -27,7 +38,7 @@ const _requestBodyTooLarge = "http: request body too large"
 
 const _defaultDatasetThumbnailUrl = "https://s3.ap-northeast-2.amazonaws.com/image.nns/NNS_logo_color.png"
 
-func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
+func (h *handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	// maximum upload of 10 MB files
 	const maxSize = 1000 << 20
 	r.Body = http.MaxBytesReader(w, r.Body, maxSize)
@@ -52,7 +63,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find last dataset_no
-	lastDatasetNo, err := h.Repository.FindNextDatasetNo(userID)
+	lastDatasetNo, err := h.datasetRepository.FindNextDatasetNo(userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			lastDatasetNo = 0
@@ -79,14 +90,14 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 		UpdateTime:  time.Now(),
 	}
 
-	newDataset.ID, err = h.Repository.Insert(newDataset)
+	newDataset.ID, err = h.datasetRepository.Insert(newDataset)
 	if err != nil {
 		log.Errorf("failed to insert new dataset: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	go uploadAsync(h.AwsS3Client, file, h.Repository, newDataset)
+	go uploadAsync(h.awsS3Client, file, h.datasetRepository, newDataset)
 
 	util.WriteJson(w, http.StatusCreated, util.ResponseBody{"id": newDataset.ID})
 }
@@ -111,7 +122,7 @@ func (u *UpdateFileConfigRequestBody) Validate() error {
 	return nil
 }
 
-func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
+func (h *handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 	body := UpdateFileConfigRequestBody{}
 	if err := util.BindJson(r.Body, &body); err != nil {
 		log.Errorf("failed to bind request body: %v", err)
@@ -127,7 +138,7 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate
-	dataset, err := h.Repository.FindByID(body.Id)
+	dataset, err := h.datasetRepository.FindByID(body.Id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("dataset not exist",
@@ -162,13 +173,13 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 	dataset.UpdateTime = time.Now()
 	dataset.ImageId = sql.NullInt64{Int64: body.Thumbnail.ImageId, Valid: body.Thumbnail.Valid}
 
-	if err := h.Repository.Update(dataset.ID, dataset); err != nil {
+	if err := h.datasetRepository.Update(dataset.ID, dataset); err != nil {
 		log.Errorf("failed to update dataset: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
 	}
 
-	_, err = h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userID, dataset.ID)
+	_, err = h.datasetRepository.FindDatasetFromDatasetLibraryByDatasetId(userID, dataset.ID)
 	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("failed to FindDatasetFromDatasetLibraryByDatasetId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -177,7 +188,7 @@ func (h *Handler) UpdateFileConfig(w http.ResponseWriter, r *http.Request) {
 
 	if err == sql.ErrNoRows {
 		// insert into library
-		if err := h.Repository.AddDatasetToDatasetLibrary(userID, dataset.ID); err != nil {
+		if err := h.datasetRepository.AddDatasetToDatasetLibrary(userID, dataset.ID); err != nil {
 			log.Errorf("failed to AddDatasetToDatasetLibrary(): %v", err)
 			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 			return
@@ -205,6 +216,7 @@ type DatasetDto struct {
 	Thumbnail   Thumbnail `json:"thumbnail"`
 	Kind        Kind      `json:"kind"`
 	IsUploading bool      `json:"isUploading"`
+	UserName    string    `json:"userName"`
 }
 
 type Thumbnail struct {
@@ -220,7 +232,7 @@ const (
 	_titleLike       = "titleLike"
 )
 
-func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetList(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorf("failed to get userId")
@@ -239,15 +251,15 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 
 	switch searchType {
 	//case _createrName:
-	//	count, err = h.Repository.CountPublicByUserName(searchContent)
+	//	count, err = h.datasetRepository.CountPublicByUserName(searchContent)
 	//case _createrNameLike:
-	//	count, err = h.Repository.CountPublicByUserNameLike(searchContent)
+	//	count, err = h.datasetRepository.CountPublicByUserNameLike(searchContent)
 	//case _title:
-	//	count, err = h.Repository.CountPublicByTitle(searchContent)
+	//	count, err = h.datasetRepository.CountPublicByTitle(searchContent)
 	//case _titleLike:
-	//	count, err = h.Repository.CountPublicByTitleLike(searchContent)
+	//	count, err = h.datasetRepository.CountPublicByTitleLike(searchContent)
 	default:
-		count, err = h.Repository.CountPublic(userId)
+		count, err = h.datasetRepository.CountPublic(userId)
 	}
 	if err != nil {
 		log.Errorf("failed to count dataset: %v", err)
@@ -259,15 +271,15 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 
 	switch searchType {
 	//case _createrName:
-	//	datasets, err = h.Repository.FindAllPublicByUserName(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//	datasets, err = h.datasetRepository.FindAllPublicByUserName(userId, searchContent, pagination.Offset(), pagination.Limit())
 	//case _createrNameLike:
-	//	datasets, err = h.Repository.FindAllPublicByUserNameLike(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//	datasets, err = h.datasetRepository.FindAllPublicByUserNameLike(userId, searchContent, pagination.Offset(), pagination.Limit())
 	//case _title:
-	//	datasets, err = h.Repository.FindAllPublicByTitle(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//	datasets, err = h.datasetRepository.FindAllPublicByTitle(userId, searchContent, pagination.Offset(), pagination.Limit())
 	//case _titleLike:
-	//	datasets, err = h.Repository.FindAllPublicByTitleLike(userId, searchContent, pagination.Offset(), pagination.Limit())
+	//	datasets, err = h.datasetRepository.FindAllPublicByTitleLike(userId, searchContent, pagination.Offset(), pagination.Limit())
 	default:
-		datasets, err = h.Repository.FindAllPublic(userId, pagination.Offset(), pagination.Limit())
+		datasets, err = h.datasetRepository.FindAllPublic(userId, pagination.Offset(), pagination.Limit())
 	}
 	if err != nil {
 		log.Errorf("failed to find dataset list: %v", err)
@@ -278,6 +290,14 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	// make response body
 	responseDatasetDtos := make([]DatasetDto, 0, len(datasets))
 	for _, val := range datasets {
+		// get user name
+		user, err := h.userRepository.SelectUser(repository.ClassifiedById(val.UserID))
+		if err != nil {
+			log.Errorf("failed to find user: %v", err)
+			util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
+			return
+		}
+
 		responseDatasetDto := DatasetDto{
 			Id:          val.ID,
 			DatasetNo:   val.DatasetNo,
@@ -295,12 +315,13 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 			},
 			Kind:        val.Kind,
 			IsUploading: val.Status != EXIST,
+			UserName:    user.Name,
 		}
 
 		if !responseDatasetDto.Thumbnail.Valid {
 			responseDatasetDto.Thumbnail.Url = _defaultDatasetThumbnailUrl
 		}
-		
+
 		responseDatasetDtos = append(responseDatasetDtos, responseDatasetDto)
 	}
 
@@ -312,7 +333,7 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	util.WriteJson(w, http.StatusOK, response)
 }
 
-func (h *Handler) DeleteDataset(w http.ResponseWriter, r *http.Request) {
+func (h *handler) DeleteDataset(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorf("failed to get userId")
@@ -323,7 +344,7 @@ func (h *Handler) DeleteDataset(w http.ResponseWriter, r *http.Request) {
 	datasetId, _ := util.Atoi64(mux.Vars(r)["datasetId"])
 
 	// exist check
-	dataset, err := h.Repository.FindByID(datasetId)
+	dataset, err := h.datasetRepository.FindByID(datasetId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("invalid datasetId",
@@ -346,7 +367,7 @@ func (h *Handler) DeleteDataset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// delete dataset
-	if err := h.Repository.Delete(datasetId); err != nil {
+	if err := h.datasetRepository.Delete(datasetId); err != nil {
 		log.Errorf("failed to delete dataset: %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -356,7 +377,7 @@ func (h *Handler) DeleteDataset(w http.ResponseWriter, r *http.Request) {
 }
 
 // TODO: Add author data to response body
-func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 	userId, ok := r.Context().Value("userId").(int64)
 	if !ok {
 		log.Errorf("failed to get userId")
@@ -364,7 +385,7 @@ func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cnt, err := h.Repository.CountDatasetLibraryByUserId(userId)
+	cnt, err := h.datasetRepository.CountDatasetLibraryByUserId(userId)
 	if err != nil {
 		log.Errorf("CountDatasetLibraryByUserId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -373,7 +394,7 @@ func (h *Handler) GetLibraryList(w http.ResponseWriter, r *http.Request) {
 
 	pagination := util.NewPaginationFromRequest(r, cnt)
 
-	libraryContents, err := h.Repository.FindDatasetFromDatasetLibraryByUserId(userId, pagination.Offset(), pagination.Limit())
+	libraryContents, err := h.datasetRepository.FindDatasetFromDatasetLibraryByUserId(userId, pagination.Offset(), pagination.Limit())
 	if err != nil {
 		log.Errorf("FindDatasetFromDatasetLibraryByUserId(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
@@ -425,7 +446,7 @@ func (a AddNewDatasetToLibraryRequestBody) Validate() error {
 	return nil
 }
 
-func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request) {
+func (h *handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request) {
 	body := AddNewDatasetToLibraryRequestBody{}
 	if err := util.BindJson(r.Body, &body); err != nil {
 		log.Errorf("Failed to bind json body: %v", err)
@@ -441,7 +462,7 @@ func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request)
 	}
 
 	// datasetId validation: is dataset public or uploaded by me
-	toAddDataset, err := h.Repository.FindByID(body.DatasetId)
+	toAddDataset, err := h.datasetRepository.FindByID(body.DatasetId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warnw("invalid datasetId",
@@ -464,7 +485,7 @@ func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request)
 	}
 
 	// check duplicate
-	if _, err := h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userId, toAddDataset.ID); err != sql.ErrNoRows {
+	if _, err := h.datasetRepository.FindDatasetFromDatasetLibraryByDatasetId(userId, toAddDataset.ID); err != sql.ErrNoRows {
 		if err == nil {
 			// already exist
 			log.Warnw("duplicated datasetId",
@@ -478,7 +499,7 @@ func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if err := h.Repository.AddDatasetToDatasetLibrary(userId, toAddDataset.ID); err != nil {
+	if err := h.datasetRepository.AddDatasetToDatasetLibrary(userId, toAddDataset.ID); err != nil {
 		log.Errorf("failed to AddDatasetToDatasetLibrary(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -487,7 +508,7 @@ func (h *Handler) AddNewDatasetToLibrary(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *Handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Request) {
+func (h *handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Request) {
 	datasetId, _ := util.Atoi64(mux.Vars(r)["datasetId"])
 
 	userId, ok := r.Context().Value("userId").(int64)
@@ -498,7 +519,7 @@ func (h *Handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Reques
 	}
 
 	// find dataset from library
-	toDeleteDatasetFromDatasetLibrary, err := h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userId, datasetId)
+	toDeleteDatasetFromDatasetLibrary, err := h.datasetRepository.FindDatasetFromDatasetLibraryByDatasetId(userId, datasetId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// invalid datasetId: dataset not exist in my library
@@ -514,7 +535,7 @@ func (h *Handler) DeleteDatasetFromLibrary(w http.ResponseWriter, r *http.Reques
 	}
 
 	// delete dataset from library
-	if err := h.Repository.DeleteDatasetFromDatasetLibrary(userId, toDeleteDatasetFromDatasetLibrary.ID); err != nil {
+	if err := h.datasetRepository.DeleteDatasetFromDatasetLibrary(userId, toDeleteDatasetFromDatasetLibrary.ID); err != nil {
 		log.Errorf("failed to DeleteDatasetFromDatasetLibrary(): %v", err)
 		util.WriteError(w, http.StatusInternalServerError, util.ErrInternalServerError)
 		return
@@ -531,7 +552,7 @@ type DatasetDetailDto struct {
 	Kind       Kind       `json:"kind"`
 }
 
-func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
 	datasetId, _ := util.Atoi64(mux.Vars(r)["datasetId"])
 
 	userId, ok := r.Context().Value("userId").(int64)
@@ -541,7 +562,7 @@ func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ds, err := h.Repository.FindDatasetFromDatasetLibraryByDatasetId(userId, datasetId)
+	ds, err := h.datasetRepository.FindDatasetFromDatasetLibraryByDatasetId(userId, datasetId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// invalid datasetId: dataset not exist in my library
@@ -562,7 +583,7 @@ func (h *Handler) GetDatasetDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.HttpClient.Get(ds.URL.String)
+	resp, err := h.httpClient.Get(ds.URL.String)
 	if err != nil {
 		log.Errorw("failed to http get",
 			"error", err,
